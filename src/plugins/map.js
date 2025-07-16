@@ -213,7 +213,7 @@ class MapPlugin {
 
     if (data.startsWith('move_')) {
       const direction = data.replace('move_', '');
-      await this.bot.answerCallbackQuery(callbackQuery.id, `Moving ${direction}...`);
+      await this.bot.answerCallbackQuery(callbackQuery.id, { text: `Moving ${direction}...` });
       
       const result = this.gameEngine.moveCharacter(userId, direction);
       
@@ -252,7 +252,7 @@ class MapPlugin {
     }
 
     if (data === 'search_area') {
-      await this.bot.answerCallbackQuery(callbackQuery.id, 'Searching...');
+      await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Searching...' });
       const searchResult = Math.random();
       let message = '🔍 *Search Results*\n\n';
       
@@ -274,7 +274,7 @@ class MapPlugin {
     }
 
     if (data === 'hunt_monsters') {
-      await this.bot.answerCallbackQuery(callbackQuery.id, 'Looking for monsters...');
+      await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Looking for monsters...' });
       const character = this.gameEngine.getCharacter(userId);
       const map = this.db.getMap(character.position.map);
       
@@ -290,7 +290,7 @@ class MapPlugin {
 
     if (data.startsWith('encounter_attack_')) {
       const monsterId = data.replace('encounter_attack_', '');
-      await this.bot.answerCallbackQuery(callbackQuery.id, 'Starting combat...');
+      await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Starting combat...' });
       
       const combat = this.gameEngine.startCombat(userId, monsterId);
       
@@ -309,7 +309,7 @@ class MapPlugin {
     }
 
     if (data === 'encounter_run') {
-      await this.bot.answerCallbackQuery(callbackQuery.id, 'Running away...');
+      await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Running away...' });
       const runChance = Math.random();
       
       if (runChance < 0.8) {

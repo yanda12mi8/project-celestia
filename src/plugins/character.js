@@ -273,10 +273,10 @@ class CharacterPlugin {
       await this.bot.sendMessage(callbackQuery.message.chat.id,
         `🎮 *Character Creation*\n\n` +
         `To create your character, use the command:\n` +
-        `/create <character_name>\n\n` +
-        `Example: /create MyHero\n\n` +
-        `Choose a name between 3-20 characters!`,
-        { parse_mode: 'Markdown' }
+        `\\create <character\\_name>\n\n` +
+        `Example: \\create MyHero\n\n` +
+        `Choose a name between 3\\-20 characters!`,
+        { parse_mode: 'MarkdownV2' }
       );
       return true;
     }
@@ -286,21 +286,21 @@ class CharacterPlugin {
       await this.bot.sendMessage(callbackQuery.message.chat.id,
         `📖 *Game Guide*\n\n` +
         `🎮 *Basic Commands:*\n` +
-        `/start - Start the game\n` +
-        `/create <name> - Create character\n` +
-        `/status - View character status\n` +
-        `/map - View current map\n` +
-        `/move <direction> - Move around\n` +
-        `/hunt - Hunt for monsters\n` +
-        `/inventory - Check inventory\n` +
-        `/guild - Guild commands\n\n` +
+        `\\start \\- Start the game\n` +
+        `\\create <name> \\- Create character\n` +
+        `\\status \\- View character status\n` +
+        `\\map \\- View current map\n` +
+        `\\move <direction> \\- Move around\n` +
+        `\\hunt \\- Hunt for monsters\n` +
+        `\\inventory \\- Check inventory\n` +
+        `\\guild \\- Guild commands\n\n` +
         `🗺️ *Movement:*\n` +
-        `Use /move north, south, east, west to explore!\n\n` +
+        `Use \\move north, south, east, west to explore\\!\n\n` +
         `⚔️ *Combat:*\n` +
-        `Find monsters and engage in turn-based combat!\n\n` +
+        `Find monsters and engage in turn\\-based combat\\!\n\n` +
         `🎯 *Quests:*\n` +
-        `Complete quests to gain experience and rewards!`,
-        { parse_mode: 'Markdown' }
+        `Complete quests to gain experience and rewards\\!`,
+        { parse_mode: 'MarkdownV2' }
       );
       return true;
     }
@@ -317,7 +317,7 @@ class CharacterPlugin {
       // Validate stat name
       const validStats = ['attack', 'defense', 'agility', 'intelligence', 'vitality', 'luck'];
       if (!validStats.includes(stat)) {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'Invalid stat!');
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Invalid stat!' });
         return true;
       }
       
@@ -326,7 +326,7 @@ class CharacterPlugin {
       
       this.gameEngine.updateCharacter(userId, character);
       
-      await this.bot.answerCallbackQuery(callbackQuery.id, `${stat} increased!`);
+      await this.bot.answerCallbackQuery(callbackQuery.id, { text: `${stat} increased!` });
       
       // Update the stats display
       setTimeout(async () => {
@@ -341,14 +341,14 @@ class CharacterPlugin {
       const success = this.gameEngine.useItem(userId, itemId);
       
       if (success) {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'Item used!');
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Item used!' });
         
         // Update inventory display
         setTimeout(async () => {
           await this.handleInventory({ chat: callbackQuery.message.chat, from: callbackQuery.from });
         }, 500);
       } else {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'Cannot use this item!');
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Cannot use this item!' });
       }
       return true;
     }
@@ -358,14 +358,14 @@ class CharacterPlugin {
       const success = this.gameEngine.equipItem(userId, itemId);
       
       if (success) {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'Item equipped!');
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Item equipped!' });
         
         // Update inventory display
         setTimeout(async () => {
           await this.handleInventory({ chat: callbackQuery.message.chat, from: callbackQuery.from });
         }, 500);
       } else {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'Cannot equip this item!');
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Cannot equip this item!' });
       }
       return true;
     }

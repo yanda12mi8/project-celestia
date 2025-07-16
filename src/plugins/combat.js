@@ -202,14 +202,14 @@ class CombatPlugin {
       const combat = this.gameEngine.startCombat(userId, monsterId);
       
       if (combat) {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'Combat started!');
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Combat started!' });
         
         // Show combat status after a brief delay
         setTimeout(async () => {
           await this.showCombatStatus(callbackQuery.message.chat.id, userId);
         }, 500);
       } else {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'Failed to start combat!');
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Failed to start combat!' });
       }
       return true;
     }
@@ -221,7 +221,7 @@ class CombatPlugin {
     }
 
     if (data === 'combat_attack') {
-      await this.bot.answerCallbackQuery(callbackQuery.id, 'Attacking...');
+      await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Attacking...' });
       const result = this.gameEngine.performAttack(userId);
       
       if (result) {
@@ -233,7 +233,7 @@ class CombatPlugin {
     }
 
     if (data === 'combat_defend') {
-      await this.bot.answerCallbackQuery(callbackQuery.id, 'Defending...');
+      await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Defending...' });
       const combat = this.gameEngine.getCombat(userId);
       
       if (combat && combat.turn === 'player') {
@@ -293,7 +293,7 @@ class CombatPlugin {
       
       if (success) {
         const item = this.db.getItem(itemId);
-        await this.bot.answerCallbackQuery(callbackQuery.id, `Used ${item.name}!`);
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: `Used ${item.name}!` });
         
         // Continue combat
         const combat = this.gameEngine.getCombat(userId);
@@ -305,13 +305,13 @@ class CombatPlugin {
           }
         }
       } else {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'Failed to use item!');
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Failed to use item!' });
       }
       return true;
     }
 
     if (data === 'combat_run') {
-      await this.bot.answerCallbackQuery(callbackQuery.id, 'Attempting to run...');
+      await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Attempting to run...' });
       const runChance = Math.random();
       
       if (runChance < 0.7) {

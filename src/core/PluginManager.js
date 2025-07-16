@@ -135,13 +135,13 @@ class PluginManager {
         // If no plugin handled the callback, answer it to prevent loading state
         if (!handled) {
           console.log('No plugin handled callback:', callbackQuery.data);
-          await this.bot.answerCallbackQuery(callbackQuery.id, 'Action not available');
+          await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Action not available' });
         }
         
       } catch (error) {
         console.error('Error handling callback query:', error);
         try {
-          await this.bot.answerCallbackQuery(callbackQuery.id, '❌ An error occurred.');
+          await this.bot.answerCallbackQuery(callbackQuery.id, { text: '❌ An error occurred.' });
         } catch (answerError) {
           console.error('Error answering callback query:', answerError);
         }
