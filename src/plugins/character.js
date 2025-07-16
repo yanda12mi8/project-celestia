@@ -197,29 +197,61 @@ class CharacterPlugin {
 
     if (Object.keys(character.inventory.items).length === 0) {
       inventoryText += `📦 Your inventory is empty!`;
-    } else {
-      inventoryText += `📦 *Items:*\n`;
-      const keyboard = { inline_keyboard: [] };
-      
-      for (const [itemId, quantity] of Object.entries(character.inventory.items)) {
-        const item = this.db.getItem(itemId);
-        if (item) {
-          inventoryText += `• ${item.name} x${quantity}\n`;
-          keyboard.inline_keyboard.push([
-            { text: `Use ${item.name}`, callback_data: `use_item_${itemId}` },
-            { text: `Equip ${item.name}`, callback_data: `equip_item_${itemId}` }
-          ]);
-        }
-      }
-
-      await this.bot.sendMessage(msg.chat.id, inventoryText, {
-        parse_mode: 'Markdown',
-        reply_markup: keyboard.inline_keyboard.length > 0 ? keyboard : undefined
-      });
+      await this.bot.sendMessage(msg.chat.id, inventoryText, { parse_mode: 'Markdown' });
       return;
     }
 
-    await this.bot.sendMessage(msg.chat.id, inventoryText, { parse_mode: 'Markdown' });
+    const categorizedItems = {
+      equipment: [],
+      consumable: [],
+      etc: []
+    };
+
+    for (const [itemId, quantity] of Object.entries(character.inventory.items)) {
+      const item = this.db.getItem(itemId);
+      if (item) {
+        const itemInfo = { ...item, quantity, id: itemId };
+        if (item.type === 'weapon' || item.type === 'armor' || item.type === 'accessory') {
+          categorizedItems.equipment.push(itemInfo);
+        } else if (item.type === 'consumable') {
+          categorizedItems.consumable.push(itemInfo);
+        } else {
+          categorizedItems.etc.push(itemInfo);
+        }
+      }
+    }
+
+    const keyboard = { inline_keyboard: [] };
+
+    if (categorizedItems.equipment.length > 0) {
+      inventoryText += '⚔️ *Equipment*\n';
+      for (const item of categorizedItems.equipment) {
+        inventoryText += `• ${item.name} x${item.quantity} - (${item.description})\n`;
+        keyboard.inline_keyboard.push([{ text: `Equip ${item.name}`, callback_data: `equip_item_${item.id}` }]);
+      }
+      inventoryText += '\n';
+    }
+
+    if (categorizedItems.consumable.length > 0) {
+      inventoryText += '💊 *Consumables*\n';
+      for (const item of categorizedItems.consumable) {
+        inventoryText += `• ${item.name} x${item.quantity} - (${item.description})\n`;
+        keyboard.inline_keyboard.push([{ text: `Use ${item.name}`, callback_data: `use_item_${item.id}` }]);
+      }
+      inventoryText += '\n';
+    }
+
+    if (categorizedItems.etc.length > 0) {
+      inventoryText += '📦 *Etc*\n';
+      for (const item of categorizedItems.etc) {
+        inventoryText += `• ${item.name} x${item.quantity} - (${item.description})\n`;
+      }
+    }
+
+    await this.bot.sendMessage(msg.chat.id, inventoryText, {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard.inline_keyboard.length > 0 ? keyboard : undefined
+    });
   }
 
   async handleEquipment(msg) {
