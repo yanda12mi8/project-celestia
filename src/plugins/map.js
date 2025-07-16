@@ -61,6 +61,11 @@ class MapPlugin {
 
   async handleMove(msg) {
     const userId = msg.from.id;
+    
+    if (this.gameEngine.getCombat(userId)) {
+        return this.bot.sendMessage(msg.chat.id, '❌ You cannot move while in combat.');
+    }
+    
     const character = this.gameEngine.getCharacter(userId);
     
     if (!character) return;
@@ -215,17 +220,24 @@ class MapPlugin {
       const direction = data.replace('move_', '');
       await this.bot.answerCallbackQuery(callbackQuery.id, { text: `Moving ${direction}...` });
       
+      if (this.gameEngine.getCombat(userId)) {
+        return this.bot.sendMessage(callbackQuery.message.chat.id, '❌ You cannot move while in combat.');
+      }
+
       const result = this.gameEngine.moveCharacter(userId, direction);
       
       if (result) {
-        // Update map display
-        setTimeout(async () => {
-          await this.handleMap({ chat: callbackQuery.message.chat, from: callbackQuery.from });
-        }, 500);
-        
         // Random encounter chance
-        if (Math.random() < 0.3) {
+        const encounterTriggered = Math.random() < 0.3;
+        if (encounterTriggered) {
           await this.triggerRandomEncounter(callbackQuery.message.chat.id, userId);
+        }
+
+        if (!encounterTriggered) {
+          // Update map display only if no encounter
+          setTimeout(async () => {
+            await this.handleMap({ chat: callbackQuery.message.chat, from: callbackQuery.from });
+          }, 500);
         }
       } else {
         await this.bot.sendMessage(callbackQuery.message.chat.id, "❌ Can't move there! There's an obstacle blocking your path.");
