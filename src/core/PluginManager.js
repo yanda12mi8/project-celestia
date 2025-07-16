@@ -96,6 +96,13 @@ class PluginManager {
             await handler(msg);
           }
         }
+
+        // Pass message to all plugins that have a message handler
+        for (const plugin of this.plugins.values()) {
+          if (plugin.handleMessage) {
+            await plugin.handleMessage(msg);
+          }
+        }
       } catch (error) {
         console.error('Error handling message:', error);
         this.bot.sendMessage(msg.chat.id, '❌ An error occurred while processing your request.');

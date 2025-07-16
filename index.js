@@ -60,14 +60,5 @@ bot.on('polling_error', (error) => {
   console.error('Polling error:', error);
 });
 
-// Add debug logging for all updates
-bot.on('message', (msg) => {
-  console.log(`Received message from ${msg.from.id}: ${msg.text}`);
-});
-
-bot.on('callback_query', (query) => {
-  console.log(`Received callback query from ${query.from.id}: ${query.data}`);
-});
-
 // Start the bot
 initializeBot();

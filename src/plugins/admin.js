@@ -7,6 +7,7 @@ class AdminPlugin {
     // Load admin users from config
     this.adminUsers = new Set(this.gameEngine.config.admin.users || []);
     
+    this.adminState = {};
     this.commands = {
       'admin': this.handleAdmin,
       'give': this.handleGive,
@@ -19,7 +20,8 @@ class AdminPlugin {
       'serverstats': this.handleServerStats,
       'reloaddata': this.handleReloadData,
       'addadmin': this.handleAddAdmin,
-      'removeadmin': this.handleRemoveAdmin
+      'removeadmin': this.handleRemoveAdmin,
+      'playerlist': this.handlePlayerList
     };
   }
 
@@ -57,7 +59,7 @@ class AdminPlugin {
         ],
         [
           { text: '💰 Set Zeny', callback_data: 'admin_zeny' },
-          { text: '🌐 Teleport User', callback_data: 'admin_teleport' }
+          { text: '👥 Player List', callback_data: 'admin_playerlist' }
         ],
         [
           { text: '📢 Broadcast', callback_data: 'admin_broadcast' },
@@ -276,8 +278,8 @@ class AdminPlugin {
       return;
     }
 
-    const args = msg.text.split(' ').slice(1);
-    if (args.length < 1) {
+    const message = msg.text.split(' ').slice(1).join(' ');
+    if (!message) {
       await this.bot.sendMessage(msg.chat.id,
         `❌ Usage: /broadcast <message>\n` +
         `Example: /broadcast Server maintenance in 30 minutes!`
@@ -285,7 +287,6 @@ class AdminPlugin {
       return;
     }
 
-    const message = args.join(' ');
     const users = this.db.getAllUsers();
     let sentCount = 0;
 
@@ -306,6 +307,53 @@ class AdminPlugin {
       `📝 Message: ${message}`,
       { parse_mode: 'Markdown' }
     );
+  }
+
+  async handleBan(msg) {
+    const userId = msg.from.id;
+    if (!this.isAdmin(userId)) return;
+
+    const args = msg.text.split(' ').slice(1);
+    if (args.length < 1) {
+      await this.bot.sendMessage(msg.chat.id, '❌ Usage: /ban <user_id>');
+      return;
+    }
+    const targetUserId = parseInt(args[0]);
+    if (this.isAdmin(targetUserId)) {
+      await this.bot.sendMessage(msg.chat.id, '❌ Cannot ban another admin.');
+      return;
+    }
+    this.gameEngine.banUser(targetUserId);
+    await this.bot.sendMessage(msg.chat.id, `✅ User ${targetUserId} has been banned.`);
+  }
+
+  async handleUnban(msg) {
+    const userId = msg.from.id;
+    if (!this.isAdmin(userId)) return;
+
+    const args = msg.text.split(' ').slice(1);
+    if (args.length < 1) {
+      await this.bot.sendMessage(msg.chat.id, '❌ Usage: /unban <user_id>');
+      return;
+    }
+    const targetUserId = parseInt(args[0]);
+    this.gameEngine.unbanUser(targetUserId);
+    await this.bot.sendMessage(msg.chat.id, `✅ User ${targetUserId} has been unbanned.`);
+  }
+
+  async handlePlayerList(msg) {
+    if (!this.isAdmin(msg.from.id)) return;
+
+    const characters = this.db.getAllCharacters();
+    let playerList = '👥 *Player List*\n\n';
+    if (characters.size === 0) {
+      playerList += 'No players found.';
+    } else {
+      for (const [id, char] of characters.entries()) {
+        playerList += `ID: \`${id}\` | Name: ${char.name} | Lvl: ${char.level}\n`;
+      }
+    }
+    await this.bot.sendMessage(msg.chat.id, playerList, { parse_mode: 'Markdown' });
   }
 
   async handleServerStats(msg) {
@@ -470,16 +518,31 @@ class AdminPlugin {
 
     if (data === 'admin_give') {
       await this.bot.answerCallbackQuery(callbackQuery.id);
-      await this.bot.sendMessage(callbackQuery.message.chat.id,
-        `🎁 *Give Items*\n\n` +
-        `Usage: /give <user_id> <item_id> <quantity>\n` +
-        `Example: /give 123456789 red_potion 10\n\n` +
-        `Use /items to see available item IDs.`,
-        { parse_mode: 'Markdown' }
-      );
+      this.adminState[userId] = { action: 'awaiting_give_details' };
+      await this.bot.sendMessage(callbackQuery.message.chat.id, '🎁 Please enter the User ID, Item ID, and quantity, separated by spaces.\n\nExample: `123456789 red_potion 10`');
       return true;
     }
 
+    if (data === 'admin_level') {
+      await this.bot.answerCallbackQuery(callbackQuery.id);
+      this.adminState[userId] = { action: 'awaiting_setlevel_details' };
+      await this.bot.sendMessage(callbackQuery.message.chat.id, '📊 Please enter the User ID and the new level, separated by a space.\n\nExample: `123456789 50`');
+      return true;
+    }
+
+    if (data === 'admin_zeny') {
+      await this.bot.answerCallbackQuery(callbackQuery.id);
+      this.adminState[userId] = { action: 'awaiting_setzeny_details' };
+      await this.bot.sendMessage(callbackQuery.message.chat.id, '💰 Please enter the User ID and the new zeny amount, separated by a space.\n\nExample: `123456789 100000`');
+      return true;
+    }
+
+    if (data === 'admin_playerlist') {
+      await this.bot.answerCallbackQuery(callbackQuery.id);
+      await this.handlePlayerList({ chat: callbackQuery.message.chat, from: callbackQuery.from });
+      return true;
+    }
+    
     if (data === 'admin_stats') {
       await this.bot.answerCallbackQuery(callbackQuery.id);
       await this.handleServerStats({ chat: callbackQuery.message.chat, from: callbackQuery.from });
@@ -493,6 +556,54 @@ class AdminPlugin {
     }
 
     return false;
+  }
+
+  async handleMessage(msg) {
+    const userId = msg.from.id;
+    if (!this.isAdmin(userId) || !this.adminState[userId]) {
+      return;
+    }
+
+    const state = this.adminState[userId];
+    const text = msg.text;
+
+    if (state.action === 'awaiting_give_details') {
+      const args = text.split(' ');
+      if (args.length < 3) {
+        await this.bot.sendMessage(msg.chat.id, '❌ Invalid format. Please provide User ID, Item ID, and quantity.\n\nExample: `123456789 red_potion 10`');
+        return;
+      }
+
+      const [targetUserId, itemId, quantity] = args;
+      delete this.adminState[userId];
+
+      const giveMsg = { ...msg, text: `/give ${targetUserId} ${itemId} ${quantity}` };
+      await this.handleGive(giveMsg);
+    } else if (state.action === 'awaiting_setlevel_details') {
+      const args = text.split(' ');
+      if (args.length < 2) {
+        await this.bot.sendMessage(msg.chat.id, '❌ Invalid format. Please provide User ID and level.\n\nExample: `123456789 50`');
+        return;
+      }
+
+      const [targetUserId, level] = args;
+      delete this.adminState[userId];
+
+      const setlevelMsg = { ...msg, text: `/setlevel ${targetUserId} ${level}` };
+      await this.handleSetLevel(setlevelMsg);
+    } else if (state.action === 'awaiting_setzeny_details') {
+      const args = text.split(' ');
+      if (args.length < 2) {
+        await this.bot.sendMessage(msg.chat.id, '❌ Invalid format. Please provide User ID and zeny amount.\n\nExample: `123456789 100000`');
+        return;
+      }
+
+      const [targetUserId, amount] = args;
+      delete this.adminState[userId];
+
+      const setzenyMsg = { ...msg, text: `/setzeny ${targetUserId} ${amount}` };
+      await this.handleSetZeny(setzenyMsg);
+    }
   }
 }
 

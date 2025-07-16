@@ -122,7 +122,7 @@ class CharacterPlugin {
     };
 
     await this.bot.sendMessage(msg.chat.id,
-      `👤 *${character.name}*\n\n` +
+      `👤 *${character.name}* *(${character.id})*\n\n` +
       `🏅 Class: ${character.class}\n` +
       `📊 Level: ${character.level}\n` +
       `✨ EXP: ${character.exp}/${character.expToNext}\n` +
