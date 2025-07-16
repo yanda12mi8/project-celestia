@@ -138,11 +138,11 @@ class GameEngine {
     return character;
   }
 
-  startCombat(userId, monsterId) {
+  """  startCombat(userId, monsterId) {
     const character = this.getCharacter(userId);
-    const monster = this.db.getMonster(monsterId);
+    const monsterData = this.db.getMonster(monsterId);
     
-    if (!character || !monster) return null;
+    if (!character || !monsterData) return null;
 
     const combat = {
       id: `${userId}_${Date.now()}`,
@@ -156,14 +156,15 @@ class GameEngine {
       },
       monster: {
         id: monsterId,
-        name: monster.name,
-        hp: monster.hp,
-        maxHp: monster.hp,
-        attack: monster.attack,
-        defense: monster.defense,
-        level: monster.level,
-        exp: monster.exp,
-        drops: monster.drops
+        name: monsterData.name,
+        hp: monsterData.hp,
+        maxHp: monsterData.hp,
+        attack: monsterData.attack,
+        defense: monsterData.defense,
+        level: monsterData.level,
+        exp: monsterData.exp,
+        drops: monsterData.drops,
+        zeny: monsterData.zeny || 0
       },
       turn: 'player',
       status: 'active'
@@ -227,19 +228,40 @@ class GameEngine {
     if (!combat) return null;
 
     if (combat.status === 'victory') {
-      // Give rewards
       const character = this.getCharacter(userId);
-      this.gainExp(userId, combat.monster.exp);
+      if (!character) return;
+
+      // Give EXP
+      character.exp += combat.monster.exp;
       
-      // Add zeny
+      // Give Zeny
       if (combat.monster.zeny) {
         character.inventory.zeny += combat.monster.zeny;
       }
 
-      // Random item drops
+      // Give item drops
       if (combat.monster.drops && combat.monster.drops.length > 0) {
         const randomDrop = combat.monster.drops[Math.floor(Math.random() * combat.monster.drops.length)];
-        this.addItemToInventory(userId, randomDrop, 1);
+        if (this.db.getItem(randomDrop)) {
+            if (!character.inventory.items[randomDrop]) {
+              character.inventory.items[randomDrop] = 0;
+            }
+            character.inventory.items[randomDrop] += 1;
+        }
+      }
+
+      // Check for level up
+      while (character.exp >= character.expToNext) {
+        character.exp -= character.expToNext;
+        character.level++;
+        character.expToNext = Math.floor(character.expToNext * 1.2);
+        
+        character.stats.maxHp += 10;
+        character.stats.maxSp += 5;
+        character.stats.hp = character.stats.maxHp;
+        character.stats.sp = character.stats.maxSp;
+        character.statusPoints += 3;
+        character.skillPoints += 1;
       }
 
       this.updateCharacter(userId, character);
@@ -247,7 +269,7 @@ class GameEngine {
 
     this.activeCombats.delete(userId);
     return combat;
-  }
+  }""
 
   getCombat(userId) {
     return this.activeCombats.get(userId);
