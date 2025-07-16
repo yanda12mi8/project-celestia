@@ -273,9 +273,9 @@ class CharacterPlugin {
       await this.bot.sendMessage(callbackQuery.message.chat.id,
         `🎮 *Character Creation*\n\n` +
         `To create your character, use the command:\n` +
-        `\\create <character\\_name>\n\n` +
-        `Example: \\create MyHero\n\n` +
-        `Choose a name between 3\\-20 characters!`,
+        `/create \\<character\\_name\\>\n\n` +
+        `Example: /create MyHero\n\n` +
+        `Choose a name between 3\\-20 characters\\!`,
         { parse_mode: 'MarkdownV2' }
       );
       return true;
@@ -286,16 +286,16 @@ class CharacterPlugin {
       await this.bot.sendMessage(callbackQuery.message.chat.id,
         `📖 *Game Guide*\n\n` +
         `🎮 *Basic Commands:*\n` +
-        `\\start \\- Start the game\n` +
-        `\\create <name> \\- Create character\n` +
-        `\\status \\- View character status\n` +
-        `\\map \\- View current map\n` +
-        `\\move <direction> \\- Move around\n` +
-        `\\hunt \\- Hunt for monsters\n` +
-        `\\inventory \\- Check inventory\n` +
-        `\\guild \\- Guild commands\n\n` +
+        `/start \\- Start the game\n` +
+        `/create \\<name\\> \\- Create character\n` +
+        `/status \\- View character status\n` +
+        `/map \\- View current map\n` +
+        `/move \\<direction\\> \\- Move around\n` +
+        `/hunt \\- Hunt for monsters\n` +
+        `/inventory \\- Check inventory\n` +
+        `/guild \\- Guild commands\n\n` +
         `🗺️ *Movement:*\n` +
-        `Use \\move north, south, east, west to explore\\!\n\n` +
+        `Use /move north, south, east, west to explore\\!\n\n` +
         `⚔️ *Combat:*\n` +
         `Find monsters and engage in turn\\-based combat\\!\n\n` +
         `🎯 *Quests:*\n` +

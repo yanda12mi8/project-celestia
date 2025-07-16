@@ -50,44 +50,44 @@ class HelpPlugin {
   async handleCommands(msg) {
     const commandsText = `📋 *All Commands*\n\n` +
       `👤 **Character Commands:**\n` +
-      `/start - Start the game\n` +
-      `/create <name> - Create character\n` +
-      `/status - View character status\n` +
-      `/stats - View and upgrade stats\n` +
-      `/inventory - Check inventory\n` +
-      `/equipment - View equipment\n\n` +
+      `/start \\- Start the game\n` +
+      `/create \\<name\\> \\- Create character\n` +
+      `/status \\- View character status\n` +
+      `/stats \\- View and upgrade stats\n` +
+      `/inventory \\- Check inventory\n` +
+      `/equipment \\- View equipment\n\n` +
       `🗺️ **Map Commands:**\n` +
-      `/map - View current map\n` +
-      `/move <direction> - Move around\n` +
-      `/where - Current location\n` +
-      `/teleport <map> - Teleport to map\n\n` +
+      `/map \\- View current map\n` +
+      `/move \\<direction\\> \\- Move around\n` +
+      `/where \\- Current location\n` +
+      `/teleport \\<map\\> \\- Teleport to map\n\n` +
       `⚔️ **Combat Commands:**\n` +
-      `/hunt - Hunt for monsters\n` +
-      `/attack - Attack in combat\n` +
-      `/combat - View combat status\n\n` +
+      `/hunt \\- Hunt for monsters\n` +
+      `/attack \\- Attack in combat\n` +
+      `/combat \\- View combat status\n\n` +
       `🏛️ **Guild Commands:**\n` +
-      `/guild - Guild information\n` +
-      `/gcreate <name> - Create guild\n` +
-      `/gjoin <name> - Join guild\n` +
-      `/gleave - Leave guild\n` +
-      `/gmembers - View guild members\n` +
-      `/gchat <message> - Guild chat\n\n` +
+      `/guild \\- Guild information\n` +
+      `/gcreate \\<name\\> \\- Create guild\n` +
+      `/gjoin \\<name\\> \\- Join guild\n` +
+      `/gleave \\- Leave guild\n` +
+      `/gmembers \\- View guild members\n` +
+      `/gchat \\<message\\> \\- Guild chat\n\n` +
       `❓ **Help Commands:**\n` +
-      `/help - Show this help\n` +
-      `/guide - Game guide\n` +
-      `/about - About the game`;
+      `/help \\- Show this help\n` +
+      `/guide \\- Game guide\n` +
+      `/about \\- About the game`;
 
-    await this.bot.sendMessage(msg.chat.id, commandsText, { parse_mode: 'Markdown' });
+    await this.bot.sendMessage(msg.chat.id, commandsText, { parse_mode: 'MarkdownV2' });
   }
 
   async handleGuide(msg) {
     const guideText = `📖 *Game Guide*\n\n` +
       `🎯 **Getting Started:**\n` +
-      `1. Create your character with /create <name>\n` +
-      `2. Use /status to see your character info\n` +
-      `3. Explore the world with /map and /move\n` +
-      `4. Fight monsters with /hunt\n` +
-      `5. Level up and get stronger!\n\n` +
+      `1\\. Create your character with /create \\<name\\>\n` +
+      `2\\. Use /status to see your character info\n` +
+      `3\\. Explore the world with /map and /move\n` +
+      `4\\. Fight monsters with /hunt\n` +
+      `5\\. Level up and get stronger\\!\n\n` +
       `📊 **Character System:**\n` +
       `• Level up by gaining EXP from combat\n` +
       `• Allocate status points to improve stats\n` +
@@ -99,7 +99,7 @@ class HelpPlugin {
       `• Different areas have different monsters\n` +
       `• Search areas for hidden items\n\n` +
       `⚔️ **Combat System:**\n` +
-      `• Turn-based combat with monsters\n` +
+      `• Turn\\-based combat with monsters\n` +
       `• Attack, defend, use items, or run\n` +
       `• Gain EXP and items from victories\n` +
       `• Death results in EXP loss\n\n` +
@@ -114,35 +114,35 @@ class HelpPlugin {
       `• Join a guild for support\n` +
       `• Explore different areas for variety`;
 
-    await this.bot.sendMessage(msg.chat.id, guideText, { parse_mode: 'Markdown' });
+    await this.bot.sendMessage(msg.chat.id, guideText, { parse_mode: 'MarkdownV2' });
   }
 
   async handleAbout(msg) {
     const aboutText = `ℹ️ *About Ragnarok RPG*\n\n` +
       `🎮 **Game Information:**\n` +
-      `Version: 1.0.0\n` +
-      `Type: Text-based RPG\n` +
+      `Version: 1\\.0\\.0\n` +
+      `Type: Text\\-based RPG\n` +
       `Platform: Telegram Bot\n` +
-      `Language: JavaScript (Node.js)\n\n` +
+      `Language: JavaScript \\(Node\\.js\\)\n\n` +
       `🎯 **Features:**\n` +
       `• Character creation and progression\n` +
-      `• Turn-based combat system\n` +
+      `• Turn\\-based combat system\n` +
       `• Map exploration with grid system\n` +
       `• Inventory and equipment management\n` +
       `• Guild system for multiplayer\n` +
-      `• Plugin-based architecture\n\n` +
+      `• Plugin\\-based architecture\n\n` +
       `🏗️ **Technical Details:**\n` +
-      `• Built with Node.js and Telegram Bot API\n` +
-      `• Modular plugin system (CJS)\n` +
-      `• File-based database storage\n` +
-      `• Real-time multiplayer support\n\n` +
+      `• Built with Node\\.js and Telegram Bot API\n` +
+      `• Modular plugin system \\(CJS\\)\n` +
+      `• File\\-based database storage\n` +
+      `• Real\\-time multiplayer support\n\n` +
       `👨‍💻 **Development:**\n` +
       `Created as a comprehensive RPG experience\n` +
       `Inspired by classic MMORPG games\n` +
       `Designed for easy extension and modification\n\n` +
-      `🎉 **Enjoy your adventure in Midgard!**`;
+      `🎉 **Enjoy your adventure in Midgard\\!**`;
 
-    await this.bot.sendMessage(msg.chat.id, aboutText, { parse_mode: 'Markdown' });
+    await this.bot.sendMessage(msg.chat.id, aboutText, { parse_mode: 'MarkdownV2' });
   }
 
   async handleCallback(callbackQuery) {
