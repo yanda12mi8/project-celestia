@@ -105,6 +105,8 @@ class PluginManager {
     // Callback query handler
     this.bot.on('callback_query', async (callbackQuery) => {
       try {
+        console.log('Received callback query:', callbackQuery.data);
+        
         // Run middlewares for callback queries
         for (const middleware of this.middlewares) {
           if (middleware.length > 1) { // Check if middleware accepts callback queries
@@ -113,16 +115,36 @@ class PluginManager {
           }
         }
         
+        let handled = false;
+        
         // Handle callback queries in plugins
         for (const plugin of this.plugins.values()) {
           if (plugin.handleCallback) {
-            const handled = await plugin.handleCallback(callbackQuery);
-            if (handled) break;
+            try {
+              const result = await plugin.handleCallback(callbackQuery);
+              if (result) {
+                handled = true;
+                break;
+              }
+            } catch (error) {
+              console.error(`Error in plugin callback handler:`, error);
+            }
           }
         }
+        
+        // If no plugin handled the callback, answer it to prevent loading state
+        if (!handled) {
+          console.log('No plugin handled callback:', callbackQuery.data);
+          await this.bot.answerCallbackQuery(callbackQuery.id, 'Action not available');
+        }
+        
       } catch (error) {
         console.error('Error handling callback query:', error);
-        this.bot.answerCallbackQuery(callbackQuery.id, '❌ An error occurred.');
+        try {
+          await this.bot.answerCallbackQuery(callbackQuery.id, '❌ An error occurred.');
+        } catch (answerError) {
+          console.error('Error answering callback query:', answerError);
+        }
       }
     });
   }

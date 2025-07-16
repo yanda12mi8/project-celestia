@@ -194,6 +194,8 @@ class CombatPlugin {
   async handleCallback(callbackQuery) {
     const userId = callbackQuery.from.id;
     const data = callbackQuery.data;
+    
+    console.log(`Combat plugin handling callback: ${data} for user ${userId}`);
 
     if (data.startsWith('start_combat_')) {
       const monsterId = data.replace('start_combat_', '');
@@ -201,7 +203,11 @@ class CombatPlugin {
       
       if (combat) {
         await this.bot.answerCallbackQuery(callbackQuery.id, 'Combat started!');
-        await this.showCombatStatus(callbackQuery.message.chat.id, userId);
+        
+        // Show combat status after a brief delay
+        setTimeout(async () => {
+          await this.showCombatStatus(callbackQuery.message.chat.id, userId);
+        }, 500);
       } else {
         await this.bot.answerCallbackQuery(callbackQuery.id, 'Failed to start combat!');
       }
@@ -215,26 +221,25 @@ class CombatPlugin {
     }
 
     if (data === 'combat_attack') {
+      await this.bot.answerCallbackQuery(callbackQuery.id, 'Attacking...');
       const result = this.gameEngine.performAttack(userId);
       
       if (result) {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'Attack performed!');
         await this.processCombatResult(callbackQuery.message.chat.id, userId, result);
       } else {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'Failed to attack!');
+        await this.bot.sendMessage(callbackQuery.message.chat.id, '❌ Failed to attack!');
       }
       return true;
     }
 
     if (data === 'combat_defend') {
+      await this.bot.answerCallbackQuery(callbackQuery.id, 'Defending...');
       const combat = this.gameEngine.getCombat(userId);
       
       if (combat && combat.turn === 'player') {
         // Defending reduces incoming damage by 50%
         combat.player.defense *= 1.5;
         combat.turn = 'monster';
-        
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'Defending!');
         
         // Monster's turn
         const result = this.gameEngine.performAttack(userId);
@@ -244,17 +249,18 @@ class CombatPlugin {
           await this.processCombatResult(callbackQuery.message.chat.id, userId, result);
         }
       } else {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'Cannot defend now!');
+        await this.bot.sendMessage(callbackQuery.message.chat.id, '❌ Cannot defend now!');
       }
       return true;
     }
 
     if (data === 'combat_item') {
+      await this.bot.answerCallbackQuery(callbackQuery.id);
       const character = this.gameEngine.getCharacter(userId);
       const items = Object.keys(character.inventory.items);
       
       if (items.length === 0) {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'No items to use!');
+        await this.bot.sendMessage(callbackQuery.message.chat.id, '❌ No items to use!');
         return true;
       }
 
@@ -270,11 +276,10 @@ class CombatPlugin {
       }
 
       if (keyboard.inline_keyboard.length === 0) {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'No usable items!');
+        await this.bot.sendMessage(callbackQuery.message.chat.id, '❌ No usable items!');
         return true;
       }
 
-      await this.bot.answerCallbackQuery(callbackQuery.id);
       await this.bot.sendMessage(callbackQuery.message.chat.id,
         `💊 *Choose an item to use:*`,
         { parse_mode: 'Markdown', reply_markup: keyboard }
@@ -306,17 +311,15 @@ class CombatPlugin {
     }
 
     if (data === 'combat_run') {
+      await this.bot.answerCallbackQuery(callbackQuery.id, 'Attempting to run...');
       const runChance = Math.random();
       
       if (runChance < 0.7) {
         this.gameEngine.endCombat(userId);
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'You ran away!');
         await this.bot.sendMessage(callbackQuery.message.chat.id,
           `🏃 *You ran away from combat!*\n\nYou escaped safely.`
         );
       } else {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'Failed to run!');
-        
         // Monster gets a free attack
         const result = this.gameEngine.performAttack(userId);
         if (result) {

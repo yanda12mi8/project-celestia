@@ -265,6 +265,8 @@ class CharacterPlugin {
   async handleCallback(callbackQuery) {
     const userId = callbackQuery.from.id;
     const data = callbackQuery.data;
+    
+    console.log(`Character plugin handling callback: ${data} for user ${userId}`);
 
     if (data === 'create_character') {
       await this.bot.answerCallbackQuery(callbackQuery.id);
@@ -311,13 +313,26 @@ class CharacterPlugin {
       }
 
       const stat = data.replace('stat_', '');
+      
+      // Validate stat name
+      const validStats = ['attack', 'defense', 'agility', 'intelligence', 'vitality', 'luck'];
+      if (!validStats.includes(stat)) {
+        await this.bot.answerCallbackQuery(callbackQuery.id, 'Invalid stat!');
+        return true;
+      }
+      
       character.stats[stat]++;
       character.statusPoints--;
       
       this.gameEngine.updateCharacter(userId, character);
       
       await this.bot.answerCallbackQuery(callbackQuery.id, `${stat} increased!`);
-      await this.handleStats({ chat: callbackQuery.message.chat, from: callbackQuery.from });
+      
+      // Update the stats display
+      setTimeout(async () => {
+        await this.handleStats({ chat: callbackQuery.message.chat, from: callbackQuery.from });
+      }, 500);
+      
       return true;
     }
 
@@ -327,7 +342,11 @@ class CharacterPlugin {
       
       if (success) {
         await this.bot.answerCallbackQuery(callbackQuery.id, 'Item used!');
-        await this.handleInventory({ chat: callbackQuery.message.chat, from: callbackQuery.from });
+        
+        // Update inventory display
+        setTimeout(async () => {
+          await this.handleInventory({ chat: callbackQuery.message.chat, from: callbackQuery.from });
+        }, 500);
       } else {
         await this.bot.answerCallbackQuery(callbackQuery.id, 'Cannot use this item!');
       }
@@ -340,9 +359,40 @@ class CharacterPlugin {
       
       if (success) {
         await this.bot.answerCallbackQuery(callbackQuery.id, 'Item equipped!');
-        await this.handleInventory({ chat: callbackQuery.message.chat, from: callbackQuery.from });
+        
+        // Update inventory display
+        setTimeout(async () => {
+          await this.handleInventory({ chat: callbackQuery.message.chat, from: callbackQuery.from });
+        }, 500);
       } else {
         await this.bot.answerCallbackQuery(callbackQuery.id, 'Cannot equip this item!');
+      }
+      return true;
+    }
+    
+    if (data === 'view_stats') {
+      await this.bot.answerCallbackQuery(callbackQuery.id);
+      await this.handleStats({ chat: callbackQuery.message.chat, from: callbackQuery.from });
+      return true;
+    }
+    
+    if (data === 'view_inventory') {
+      await this.bot.answerCallbackQuery(callbackQuery.id);
+      await this.handleInventory({ chat: callbackQuery.message.chat, from: callbackQuery.from });
+      return true;
+    }
+    
+    if (data === 'view_equipment') {
+      await this.bot.answerCallbackQuery(callbackQuery.id);
+      await this.handleEquipment({ chat: callbackQuery.message.chat, from: callbackQuery.from });
+      return true;
+    }
+    
+    if (data === 'view_map') {
+      await this.bot.answerCallbackQuery(callbackQuery.id);
+      const mapPlugin = this.gameEngine.pluginManager.getPlugin('map');
+      if (mapPlugin) {
+        await mapPlugin.handleMap({ chat: callbackQuery.message.chat, from: callbackQuery.from });
       }
       return true;
     }

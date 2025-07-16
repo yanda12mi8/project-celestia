@@ -208,30 +208,36 @@ class MapPlugin {
   async handleCallback(callbackQuery) {
     const userId = callbackQuery.from.id;
     const data = callbackQuery.data;
+    
+    console.log(`Map plugin handling callback: ${data} for user ${userId}`);
 
     if (data.startsWith('move_')) {
       const direction = data.replace('move_', '');
+      await this.bot.answerCallbackQuery(callbackQuery.id, `Moving ${direction}...`);
+      
       const result = this.gameEngine.moveCharacter(userId, direction);
       
       if (result) {
-        await this.bot.answerCallbackQuery(callbackQuery.id, `Moved ${direction}!`);
-        await this.handleMap({ chat: callbackQuery.message.chat, from: callbackQuery.from });
+        // Update map display
+        setTimeout(async () => {
+          await this.handleMap({ chat: callbackQuery.message.chat, from: callbackQuery.from });
+        }, 500);
         
         // Random encounter chance
         if (Math.random() < 0.3) {
           await this.triggerRandomEncounter(callbackQuery.message.chat.id, userId);
         }
       } else {
-        await this.bot.answerCallbackQuery(callbackQuery.id, "Can't move there!");
+        await this.bot.sendMessage(callbackQuery.message.chat.id, "❌ Can't move there! There's an obstacle blocking your path.");
       }
       return true;
     }
 
     if (data === 'map_info') {
+      await this.bot.answerCallbackQuery(callbackQuery.id);
       const character = this.gameEngine.getCharacter(userId);
       const map = this.db.getMap(character.position.map);
       
-      await this.bot.answerCallbackQuery(callbackQuery.id);
       await this.bot.sendMessage(callbackQuery.message.chat.id,
         `🗺️ *Map Information*\n\n` +
         `📍 Name: ${map.name}\n` +
@@ -246,6 +252,7 @@ class MapPlugin {
     }
 
     if (data === 'search_area') {
+      await this.bot.answerCallbackQuery(callbackQuery.id, 'Searching...');
       const searchResult = Math.random();
       let message = '🔍 *Search Results*\n\n';
       
@@ -262,52 +269,54 @@ class MapPlugin {
         message += `🔍 You searched the area but found nothing interesting.`;
       }
       
-      await this.bot.answerCallbackQuery(callbackQuery.id);
       await this.bot.sendMessage(callbackQuery.message.chat.id, message, { parse_mode: 'Markdown' });
       return true;
     }
 
     if (data === 'hunt_monsters') {
+      await this.bot.answerCallbackQuery(callbackQuery.id, 'Looking for monsters...');
       const character = this.gameEngine.getCharacter(userId);
       const map = this.db.getMap(character.position.map);
       
       if (!map.monsters || map.monsters.length === 0) {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'No monsters in this area!');
+        await this.bot.sendMessage(callbackQuery.message.chat.id, '❌ No monsters in this area!');
         return true;
       }
 
       const randomMonster = map.monsters[Math.floor(Math.random() * map.monsters.length)];
-      await this.bot.answerCallbackQuery(callbackQuery.id);
       await this.triggerRandomEncounter(callbackQuery.message.chat.id, userId);
       return true;
     }
 
     if (data.startsWith('encounter_attack_')) {
       const monsterId = data.replace('encounter_attack_', '');
+      await this.bot.answerCallbackQuery(callbackQuery.id, 'Starting combat...');
+      
       const combat = this.gameEngine.startCombat(userId, monsterId);
       
       if (combat) {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'Combat started!');
         // This will be handled by the combat plugin
-        const combatPlugin = require('./combat');
-        const combatInstance = new combatPlugin(this.bot, this.db, this.gameEngine);
-        await combatInstance.showCombatStatus(callbackQuery.message.chat.id, userId);
+        const combatPlugin = this.gameEngine.pluginManager.getPlugin('combat');
+        if (combatPlugin) {
+          setTimeout(async () => {
+            await combatPlugin.showCombatStatus(callbackQuery.message.chat.id, userId);
+          }, 500);
+        }
       } else {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'Failed to start combat!');
+        await this.bot.sendMessage(callbackQuery.message.chat.id, '❌ Failed to start combat!');
       }
       return true;
     }
 
     if (data === 'encounter_run') {
+      await this.bot.answerCallbackQuery(callbackQuery.id, 'Running away...');
       const runChance = Math.random();
       
       if (runChance < 0.8) {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'You ran away successfully!');
         await this.bot.sendMessage(callbackQuery.message.chat.id,
           `🏃 *You ran away successfully!*\n\nYou escaped from the monster.`
         );
       } else {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'Failed to run away!');
         await this.bot.sendMessage(callbackQuery.message.chat.id,
           `❌ *Failed to run away!*\n\nThe monster blocked your escape!`
         );
