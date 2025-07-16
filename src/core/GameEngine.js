@@ -1,0 +1,379 @@
+class GameEngine {
+  constructor(db, config) {
+    this.db = db;
+    this.config = config;
+    this.activeCombats = new Map();
+    this.playerSessions = new Map();
+    this.pluginManager = null; // Will be set by PluginManager
+  }
+
+  async init() {
+    console.log('🎮 Game Engine initialized');
+  }
+
+  createCharacter(userId, name, className = 'novice') {
+    const character = {
+      id: userId,
+      name: name,
+      class: className,
+      level: 1,
+      exp: 0,
+      expToNext: 100,
+      stats: {
+        hp: 100,
+        maxHp: 100,
+        sp: 50,
+        maxSp: 50,
+        attack: 10,
+        defense: 5,
+        agility: 10,
+        intelligence: 10,
+        vitality: 10,
+        luck: 10
+      },
+      statusPoints: 0,
+      skillPoints: 0,
+      inventory: {
+        items: {},
+        zeny: 1000
+      },
+      equipment: {
+        weapon: null,
+        armor: null,
+        accessory: null
+      },
+      position: {
+        map: 'prontera',
+        x: 10,
+        y: 10
+      },
+      quests: {
+        active: [],
+        completed: []
+      },
+      guild: null,
+      lastLogin: Date.now(),
+      playtime: 0
+    };
+
+    this.db.setCharacter(userId, character);
+    return character;
+  }
+
+  getCharacter(userId) {
+    return this.db.getCharacter(userId);
+  }
+
+  updateCharacter(userId, updates) {
+    const character = this.getCharacter(userId);
+    if (!character) return null;
+
+    const updatedCharacter = { ...character, ...updates };
+    this.db.setCharacter(userId, updatedCharacter);
+    return updatedCharacter;
+  }
+
+  gainExp(userId, amount) {
+    const character = this.getCharacter(userId);
+    if (!character) return null;
+
+    character.exp += amount;
+    
+    // Check for level up
+    while (character.exp >= character.expToNext) {
+      character.exp -= character.expToNext;
+      character.level++;
+      character.expToNext = Math.floor(character.expToNext * 1.2);
+      
+      // Level up bonuses
+      character.stats.maxHp += 10;
+      character.stats.maxSp += 5;
+      character.stats.hp = character.stats.maxHp;
+      character.stats.sp = character.stats.maxSp;
+      character.statusPoints += 3;
+      character.skillPoints += 1;
+    }
+
+    this.updateCharacter(userId, character);
+    return character;
+  }
+
+  moveCharacter(userId, direction) {
+    const character = this.getCharacter(userId);
+    if (!character) return null;
+
+    const map = this.db.getMap(character.position.map);
+    if (!map) return null;
+
+    let newX = character.position.x;
+    let newY = character.position.y;
+
+    switch (direction) {
+      case 'north':
+        newY = Math.max(0, newY - 1);
+        break;
+      case 'south':
+        newY = Math.min(map.height - 1, newY + 1);
+        break;
+      case 'east':
+        newX = Math.min(map.width - 1, newX + 1);
+        break;
+      case 'west':
+        newX = Math.max(0, newX - 1);
+        break;
+      default:
+        return null;
+    }
+
+    // Check if tile is walkable
+    const tile = map.tiles[newY][newX];
+    if (tile === 'wall' || tile === 'water') {
+      return null;
+    }
+
+    character.position.x = newX;
+    character.position.y = newY;
+    this.updateCharacter(userId, character);
+
+    return character;
+  }
+
+  startCombat(userId, monsterId) {
+    const character = this.getCharacter(userId);
+    const monster = this.db.getMonster(monsterId);
+    
+    if (!character || !monster) return null;
+
+    const combat = {
+      id: `${userId}_${Date.now()}`,
+      player: {
+        id: userId,
+        name: character.name,
+        hp: character.stats.hp,
+        maxHp: character.stats.maxHp,
+        attack: character.stats.attack,
+        defense: character.stats.defense
+      },
+      monster: {
+        id: monsterId,
+        name: monster.name,
+        hp: monster.hp,
+        maxHp: monster.hp,
+        attack: monster.attack,
+        defense: monster.defense,
+        level: monster.level,
+        exp: monster.exp,
+        drops: monster.drops
+      },
+      turn: 'player',
+      status: 'active'
+    };
+
+    this.activeCombats.set(userId, combat);
+    return combat;
+  }
+
+  performAttack(userId, action = 'attack') {
+    const combat = this.activeCombats.get(userId);
+    if (!combat || combat.status !== 'active') return null;
+
+    const results = [];
+
+    if (combat.turn === 'player') {
+      // Player attack
+      const damage = Math.max(1, combat.player.attack - combat.monster.defense);
+      combat.monster.hp -= damage;
+      results.push({
+        attacker: combat.player.name,
+        target: combat.monster.name,
+        damage: damage,
+        type: 'attack'
+      });
+
+      if (combat.monster.hp <= 0) {
+        combat.status = 'victory';
+        results.push({ type: 'victory' });
+        this.endCombat(userId);
+      } else {
+        combat.turn = 'monster';
+      }
+    }
+
+    if (combat.turn === 'monster' && combat.status === 'active') {
+      // Monster attack
+      const damage = Math.max(1, combat.monster.attack - combat.player.defense);
+      combat.player.hp -= damage;
+      results.push({
+        attacker: combat.monster.name,
+        target: combat.player.name,
+        damage: damage,
+        type: 'attack'
+      });
+
+      if (combat.player.hp <= 0) {
+        combat.status = 'defeat';
+        results.push({ type: 'defeat' });
+        this.endCombat(userId);
+      } else {
+        combat.turn = 'player';
+      }
+    }
+
+    return { combat, results };
+  }
+
+  endCombat(userId) {
+    const combat = this.activeCombats.get(userId);
+    if (!combat) return null;
+
+    if (combat.status === 'victory') {
+      // Give rewards
+      const character = this.getCharacter(userId);
+      this.gainExp(userId, combat.monster.exp);
+      
+      // Random item drops
+      if (combat.monster.drops && combat.monster.drops.length > 0) {
+        const randomDrop = combat.monster.drops[Math.floor(Math.random() * combat.monster.drops.length)];
+        this.addItemToInventory(userId, randomDrop, 1);
+      }
+    }
+
+    this.activeCombats.delete(userId);
+    return combat;
+  }
+
+  getCombat(userId) {
+    return this.activeCombats.get(userId);
+  }
+
+  addItemToInventory(userId, itemId, quantity = 1) {
+    const character = this.getCharacter(userId);
+    if (!character) return false;
+
+    if (!character.inventory.items[itemId]) {
+      character.inventory.items[itemId] = 0;
+    }
+    
+    character.inventory.items[itemId] += quantity;
+    this.updateCharacter(userId, character);
+    return true;
+  }
+
+  useItem(userId, itemId) {
+    const character = this.getCharacter(userId);
+    const item = this.db.getItem(itemId);
+    
+    if (!character || !item || !character.inventory.items[itemId] || character.inventory.items[itemId] <= 0) {
+      return false;
+    }
+
+    if (item.type === 'consumable' && item.effect) {
+      // Apply item effects
+      if (item.effect.hp) {
+        character.stats.hp = Math.min(character.stats.maxHp, character.stats.hp + item.effect.hp);
+      }
+      if (item.effect.sp) {
+        character.stats.sp = Math.min(character.stats.maxSp, character.stats.sp + item.effect.sp);
+      }
+
+      // Remove item from inventory
+      character.inventory.items[itemId]--;
+      if (character.inventory.items[itemId] <= 0) {
+        delete character.inventory.items[itemId];
+      }
+
+      this.updateCharacter(userId, character);
+      return true;
+    }
+
+    return false;
+  }
+
+  equipItem(userId, itemId) {
+    const character = this.getCharacter(userId);
+    const item = this.db.getItem(itemId);
+    
+    if (!character || !item || !character.inventory.items[itemId] || character.inventory.items[itemId] <= 0) {
+      return false;
+    }
+
+    if (item.type === 'weapon' || item.type === 'armor' || item.type === 'accessory') {
+      // Unequip current item if any
+      const currentEquip = character.equipment[item.type];
+      if (currentEquip) {
+        this.addItemToInventory(userId, currentEquip, 1);
+      }
+
+      // Equip new item
+      character.equipment[item.type] = itemId;
+      
+      // Remove from inventory
+      character.inventory.items[itemId]--;
+      if (character.inventory.items[itemId] <= 0) {
+        delete character.inventory.items[itemId];
+      }
+
+      this.updateCharacter(userId, character);
+      return true;
+    }
+
+    return false;
+  }
+
+  generateMapView(userId, radius = 3) {
+    const character = this.getCharacter(userId);
+    if (!character) return null;
+
+    const map = this.db.getMap(character.position.map);
+    if (!map) return null;
+
+    const centerX = character.position.x;
+    const centerY = character.position.y;
+    const view = [];
+
+    for (let y = centerY - radius; y <= centerY + radius; y++) {
+      const row = [];
+      for (let x = centerX - radius; x <= centerX + radius; x++) {
+        if (x < 0 || x >= map.width || y < 0 || y >= map.height) {
+          row.push('⬛');
+        } else if (x === centerX && y === centerY) {
+          row.push('🚶');
+        } else {
+          const tile = map.tiles[y][x];
+          switch (tile) {
+            case 'grass':
+              row.push('🟩');
+              break;
+            case 'tree':
+              row.push('🌳');
+              break;
+            case 'water':
+              row.push('🌊');
+              break;
+            case 'wall':
+              row.push('🧱');
+              break;
+            case 'floor':
+              row.push('⬜');
+              break;
+            default:
+              row.push('❓');
+          }
+        }
+      }
+      view.push(row.join(''));
+    }
+
+    return view.join('\n');
+  }
+
+  isInCity(mapId) {
+    return this.config.locations.cities.includes(mapId);
+  }
+
+  isDungeon(mapId) {
+    return this.config.locations.dungeons.includes(mapId);
+  }
+}
+
+module.exports = GameEngine;

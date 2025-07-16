@@ -1,0 +1,2 @@
+# This file ensures the plugins directory is created
+# Plugin files will be automatically loaded from this directory

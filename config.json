@@ -1,0 +1,19 @@
+{
+  "bot": {
+    "token": "YOUR_BOT_TOKEN_HERE",
+    "polling": true
+  },
+  "admin": {
+    "users": [948962959]
+  },
+  "game": {
+    "maxPartySize": 6,
+    "dungeonCooldown": 3600000,
+    "expRate": 1.0,
+    "dropRate": 1.0
+  },
+  "locations": {
+    "cities": ["prontera", "geffen", "payon", "alberta"],
+    "dungeons": ["dungeon1", "dungeon2", "dungeon3", "orc_dungeon", "ant_hell"]
+  }
+}

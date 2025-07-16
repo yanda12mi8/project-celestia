@@ -1,0 +1,34 @@
+{
+  "name": "ragnarok-rpg-bot",
+  "version": "1.0.0",
+  "description": "A comprehensive Telegram RPG bot with plugin system inspired by Ragnarok Online",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "telegram",
+    "bot",
+    "rpg",
+    "ragnarok",
+    "game",
+    "mmorpg",
+    "plugin",
+    "javascript"
+  ],
+  "author": "RPG Bot Developer",
+  "license": "MIT",
+  "dependencies": {
+    "node-telegram-bot-api": "^0.66.0",
+    "fs-extra": "^11.2.0",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
