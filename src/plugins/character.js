@@ -266,6 +266,7 @@ class CharacterPlugin {
     }
 
     let equipmentText = `⚔️ *${character.name}'s Equipment*\n\n`;
+    const keyboard = { inline_keyboard: [] };
     
     const equipment = character.equipment;
     const slots = ['weapon', 'armor', 'accessory'];
@@ -276,13 +277,17 @@ class CharacterPlugin {
         const item = this.db.getItem(itemId);
         if (item) {
           equipmentText += `${this.getEquipmentIcon(slot)} ${slot}: ${item.name}\n`;
+          keyboard.inline_keyboard.push([{ text: `Unequip ${item.name}`, callback_data: `unequip_item_${slot}` }]);
         }
       } else {
         equipmentText += `${this.getEquipmentIcon(slot)} ${slot}: *Not equipped*\n`;
       }
     }
 
-    await this.bot.sendMessage(msg.chat.id, equipmentText, { parse_mode: 'Markdown' });
+    await this.bot.sendMessage(msg.chat.id, equipmentText, { 
+        parse_mode: 'Markdown',
+        reply_markup: keyboard.inline_keyboard.length > 0 ? keyboard : undefined
+    });
   }
 
   getEquipmentIcon(slot) {
@@ -398,6 +403,23 @@ class CharacterPlugin {
         }, 500);
       } else {
         await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Cannot equip this item!' });
+      }
+      return true;
+    }
+
+    if (data.startsWith('unequip_item_')) {
+      const slot = data.replace('unequip_item_', '');
+      const success = this.gameEngine.unequipItem(userId, slot);
+      
+      if (success) {
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Item unequipped!' });
+        
+        // Update equipment display
+        setTimeout(async () => {
+          await this.handleEquipment({ chat: callbackQuery.message.chat, from: callbackQuery.from });
+        }, 500);
+      } else {
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Failed to unequip item!' });
       }
       return true;
     }

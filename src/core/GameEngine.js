@@ -44,8 +44,8 @@ class GameEngine {
       },
       position: {
         map: 'prontera',
-        x: 10,
-        y: 10
+        x: 5,
+        y: 5
       },
       quests: {
         active: [],
@@ -231,11 +231,18 @@ class GameEngine {
       const character = this.getCharacter(userId);
       this.gainExp(userId, combat.monster.exp);
       
+      // Add zeny
+      if (combat.monster.zeny) {
+        character.inventory.zeny += combat.monster.zeny;
+      }
+
       // Random item drops
       if (combat.monster.drops && combat.monster.drops.length > 0) {
         const randomDrop = combat.monster.drops[Math.floor(Math.random() * combat.monster.drops.length)];
         this.addItemToInventory(userId, randomDrop, 1);
       }
+
+      this.updateCharacter(userId, character);
     }
 
     this.activeCombats.delete(userId);
@@ -299,15 +306,27 @@ class GameEngine {
 
     if (item.type === 'weapon' || item.type === 'armor' || item.type === 'accessory') {
       // Unequip current item if any
-      const currentEquip = character.equipment[item.type];
-      if (currentEquip) {
-        this.addItemToInventory(userId, currentEquip, 1);
+      const currentEquipId = character.equipment[item.type];
+      if (currentEquipId) {
+        this.unequipItem(userId, item.type, false); // Don't add back to inventory yet
       }
 
       // Equip new item
       character.equipment[item.type] = itemId;
       
-      // Remove from inventory
+      // Apply stats
+      if (item.stats) {
+        for (const [stat, value] of Object.entries(item.stats)) {
+          character.stats[stat] = (character.stats[stat] || 0) + value;
+        }
+      }
+
+      // Add the previously equipped item back to inventory
+      if (currentEquipId) {
+        this.addItemToInventory(userId, currentEquipId, 1);
+      }
+
+      // Remove newly equipped item from inventory
       character.inventory.items[itemId]--;
       if (character.inventory.items[itemId] <= 0) {
         delete character.inventory.items[itemId];
@@ -318,6 +337,32 @@ class GameEngine {
     }
 
     return false;
+  }
+
+  unequipItem(userId, slot, addToInventory = true) {
+    const character = this.getCharacter(userId);
+    if (!character || !character.equipment[slot]) {
+      return false;
+    }
+
+    const itemId = character.equipment[slot];
+    const item = this.db.getItem(itemId);
+
+    // Remove stats
+    if (item && item.stats) {
+      for (const [stat, value] of Object.entries(item.stats)) {
+        character.stats[stat] -= value;
+      }
+    }
+
+    // Add back to inventory
+    if (addToInventory) {
+        this.addItemToInventory(userId, itemId, 1);
+    }
+
+    character.equipment[slot] = null;
+    this.updateCharacter(userId, character);
+    return true;
   }
 
   generateMapView(userId, radius = 3) {

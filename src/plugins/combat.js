@@ -166,13 +166,16 @@ class CombatPlugin {
       if (res.type === 'attack') {
         message += `${res.attacker} attacks ${res.target} for ${res.damage} damage!\n`;
       } else if (res.type === 'victory') {
-        message += `\n🎉 *Victory!*\n`;
+        message += `\n🎉 *Victory!\n`;
         message += `You defeated the ${combat.monster.name}!\n`;
         message += `Gained ${combat.monster.exp} EXP!\n`;
+        if (combat.monster.zeny) {
+          message += `💰 You found ${combat.monster.zeny} Zeny!\n`;
+        }
         
         if (combat.monster.drops && combat.monster.drops.length > 0) {
           const drops = combat.monster.drops.join(', ');
-          message += `💰 Possible drops: ${drops}`;
+          message += `📦 Possible drops: ${drops}`;
         }
       } else if (res.type === 'defeat') {
         message += `\n💀 *Defeat!*\n`;
