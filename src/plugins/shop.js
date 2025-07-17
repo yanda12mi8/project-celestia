@@ -39,16 +39,33 @@ class ShopPlugin {
     if (!character) return;
 
     const args = msg.text.split(' ').slice(1);
-    if (args.length < 3) {
+    if (args.length < 2) {
       await this.bot.sendMessage(msg.chat.id,
-        `❌ Usage: /buy <shop_id> <item_id> <quantity>\n` +
-        `Example: /buy weapon_shop sword 1`
+        `❌ Usage: /buy <shop_id> <item_id>
+` +
+        `Example: /buy weapon_shop iron_sword`
       );
       return;
     }
 
-    const [shopId, itemId, quantity] = args;
-    await this.processBuy(msg.chat.id, userId, shopId, itemId, parseInt(quantity));
+    const [shopId, itemId] = args;
+    const itemTypes = ['consumable', 'etc', 'weapon', 'armor', 'accessory'];
+    if (itemTypes.includes(itemId)) {
+      await this.bot.sendMessage(msg.chat.id, `❌ Please specify a unique item ID, not a general item type (e.g., 'iron_sword' instead of 'weapon').`);
+      return;
+    }
+    const item = this.db.getItem(itemId);
+
+    if (!item) {
+      await this.bot.sendMessage(msg.chat.id, `❌ Item not found!`);
+      return;
+    }
+
+    if (item.type === 'consumable' || item.type === 'etc') {
+      await this.askForQuantity(msg.chat.id, userId, 'buy', shopId, itemId);
+    } else {
+      await this.processBuy(msg.chat.id, userId, shopId, itemId, 1);
+    }
   }
 
   async handleSell(msg) {
@@ -58,16 +75,38 @@ class ShopPlugin {
     if (!character) return;
 
     const args = msg.text.split(' ').slice(1);
-    if (args.length < 3) {
+    if (args.length < 1) {
       await this.bot.sendMessage(msg.chat.id,
-        `❌ Usage: /sell <shop_id> <item_id> <quantity>\n` +
-        `Example: /sell weapon_shop jellopy 10`
+        `❌ Usage: /sell <item_id>
+` +
+        `Example: /sell red_potion`
       );
       return;
     }
 
-    const [shopId, itemId, quantity] = args;
-    await this.processSell(msg.chat.id, userId, shopId, itemId, parseInt(quantity));
+    const [itemId] = args;
+    const itemTypes = ['consumable', 'etc', 'weapon', 'armor', 'accessory'];
+    if (itemTypes.includes(itemId)) {
+      await this.bot.sendMessage(msg.chat.id, `❌ Please specify a unique item ID, not a general item type (e.g., 'red_potion' instead of 'consumable').`);
+      return;
+    }
+    const shop = this.db.getShopsByLocation(character.position.map)[0];
+    if (!shop) {
+      await this.bot.sendMessage(msg.chat.id, `❌ No shop found in your current location.`);
+      return;
+    }
+
+    const item = this.db.getItem(itemId);
+    if (!item) {
+      await this.bot.sendMessage(msg.chat.id, `❌ Item not found!`);
+      return;
+    }
+
+    if (item.type === 'consumable' || item.type === 'etc') {
+      await this.askForQuantity(msg.chat.id, userId, 'sell', shop.id, itemId);
+    } else {
+      await this.processSell(msg.chat.id, userId, shop.id, itemId, 1);
+    }
   }
 
   async handleShops(msg) {
@@ -129,6 +168,8 @@ class ShopPlugin {
     const character = this.gameEngine.getCharacter(userId);
     const shop = this.db.getShop(shopId);
 
+    // console.log(`[ShopPlugin] showShop: shopId=${shopId}, shop=${JSON.stringify(shop)}`);
+
     if (!shop) {
       await this.bot.sendMessage(chatId,
         `❌ Shop "${shopId}" not found!`
@@ -163,15 +204,16 @@ class ShopPlugin {
     if (shop.type === 'buy_sell' || shop.type === 'buy_only') {
       message += `🛒 *Items for Sale:*\n`;
       
+      // console.log(`[ShopPlugin] shop.items: ${JSON.stringify(shop.items)}`);
+
       for (const shopItem of shop.items) {
         const item = this.db.getItem(shopItem.item);
         if (item) {
-          const price = Math.floor(shopItem.price * shop.buy_rate);
+          const price = Math.floor(item.price * shop.buy_rate);
           const stockText = shopItem.stock === -1 ? '∞' : shopItem.stock;
           message += `• ${item.name} - ${price} Zeny (Stock: ${stockText})\n`;
-          
           keyboard.inline_keyboard.push([
-            { text: `💰 Buy ${item.name}`, callback_data: `shop_buy_${shopId}_${shopItem.item}_1` }
+            { text: `💰 Buy ${item.name}`, callback_data: `shop_buy_${shopId}_${shopItem.item}` }
           ]);
         }
       }
@@ -182,7 +224,7 @@ class ShopPlugin {
       message += `Sell rate: ${Math.floor(shop.sell_rate * 100)}% of item value\n`;
       
       keyboard.inline_keyboard.push([
-        { text: '💸 Sell Items', callback_data: `shop_sell_menu_${shopId}` }
+        { text: '💸 Sell Items', callback_data: `shop_sell_menu_${shop.id}` }
       ]);
     }
 
@@ -215,7 +257,7 @@ class ShopPlugin {
       return;
     }
 
-    const totalPrice = Math.floor(shopItem.price * shop.buy_rate * quantity);
+    const totalPrice = Math.floor(item.price * shop.buy_rate * quantity);
     
     if (character.inventory.zeny < totalPrice) {
       await this.bot.sendMessage(chatId,
@@ -288,6 +330,39 @@ class ShopPlugin {
     this.gameEngine.updateCharacter(userId, character);
   }
 
+  async askForQuantity(chatId, userId, type, shopId, itemId) {
+    const item = this.db.getItem(itemId);
+    if (!item) {
+      await this.bot.sendMessage(chatId, `❌ Item not found!`);
+      return;
+    }
+
+    const typeText = type === 'buy' ? 'Buy' : 'Sell';
+    let message = `🔢 *${typeText} ${item.name}*
+
+`;
+    message += `How many do you want to ${type.toLowerCase()}?`;
+
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: '1', callback_data: `shop_quantity_${type}_${shopId}_${itemId}_1` },
+          { text: '5', callback_data: `shop_quantity_${type}_${shopId}_${itemId}_5` },
+          { text: '10', callback_data: `shop_quantity_${type}_${shopId}_${itemId}_10` },
+          { text: '25', callback_data: `shop_quantity_${type}_${shopId}_${itemId}_25` },
+        ],
+        [
+          { text: 'Cancel', callback_data: `shop_cancel_${type}_${shopId}` }
+        ]
+      ]
+    };
+
+    await this.bot.sendMessage(chatId, message, {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard
+    });
+  }
+
   async showSellMenu(chatId, userId, shopId) {
     const character = this.gameEngine.getCharacter(userId);
     const shop = this.db.getShop(shopId);
@@ -306,8 +381,12 @@ class ShopPlugin {
       return;
     }
 
-    let message = `💸 *Sell Items to ${shop.name}*\n\n`;
-    message += `Sell rate: ${Math.floor(shop.sell_rate * 100)}%\n\n`;
+    let message = `💸 *Sell Items to ${shop.name}*
+
+`;
+    message += `Sell rate: ${Math.floor(shop.sell_rate * 100)}%
+
+`;
 
     const keyboard = { inline_keyboard: [] };
 
@@ -315,10 +394,11 @@ class ShopPlugin {
       const item = this.db.getItem(itemId);
       if (item) {
         const sellPrice = Math.floor(item.price * shop.sell_rate);
-        message += `• ${item.name} x${quantity} - ${sellPrice} Zeny each\n`;
+        message += `• ${item.name} x${quantity} - ${sellPrice} Zeny each
+`;
         
         keyboard.inline_keyboard.push([
-          { text: `💸 Sell ${item.name}`, callback_data: `shop_sell_${shopId}_${itemId}_1` }
+          { text: `💸 Sell ${item.name}`, callback_data: `shop_sell_${shopId}_${itemId}` }
         ]);
       }
     }
@@ -330,24 +410,51 @@ class ShopPlugin {
   }
 
   async handleCallback(callbackQuery) {
+    console.log(`[ShopPlugin] handleCallback: Received callbackQuery.data: ${callbackQuery.data}`);
     const userId = callbackQuery.from.id;
     const data = callbackQuery.data;
 
     if (data.startsWith('shop_visit_')) {
       const shopId = data.replace('shop_visit_', '');
-      await this.bot.answerCallbackQuery(callbackQuery.id);
+      await this.bot.answerCallbackQuery(callbackQuery.id, {});
       await this.showShop(callbackQuery.message.chat.id, userId, shopId);
       return true;
     }
 
     if (data.startsWith('shop_buy_')) {
-      const parts = data.replace('shop_buy_', '').split('_');
-      const shopId = parts[0];
-      const itemId = parts[1];
-      const quantity = parseInt(parts[2]);
+      console.log(`[ShopPlugin] handleCallback: shop_buy_ data: ${data}`);
+      const remainingString = data.replace('shop_buy_', '');
+      let shopId = '';
+      let itemId = '';
+
+      // Iterate through known shop IDs to find a match
+      const allShops = this.db.getShops();
+      for (const sId in allShops) {
+        if (remainingString.startsWith(sId + '_')) {
+          shopId = sId;
+          itemId = remainingString.substring(sId.length + 1);
+          break;
+        }
+      }
+
+      if (!shopId || !itemId) {
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Invalid callback data format or shop/item not found!' });
+        return true;
+      }
+      console.log(`[ShopPlugin] handleCallback: Extracted shopId: ${shopId}, itemId: ${itemId}`);
       
-      await this.bot.answerCallbackQuery(callbackQuery.id, 'Processing purchase...');
-      await this.processBuy(callbackQuery.message.chat.id, userId, shopId, itemId, quantity);
+      const item = this.db.getItem(itemId);
+      if (!item) {
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Item not found!'});
+        return true;
+      }
+
+      await this.bot.answerCallbackQuery(callbackQuery.id, {});
+      if (item.type === 'consumable' || item.type === 'etc') {
+        await this.askForQuantity(callbackQuery.message.chat.id, userId, 'buy', shopId, itemId);
+      } else {
+        await this.processBuy(callbackQuery.message.chat.id, userId, shopId, itemId, 1);
+      }
       return true;
     }
 
@@ -359,13 +466,114 @@ class ShopPlugin {
     }
 
     if (data.startsWith('shop_sell_')) {
-      const parts = data.replace('shop_sell_', '').split('_');
-      const shopId = parts[0];
-      const itemId = parts[1];
-      const quantity = parseInt(parts[2]);
+      console.log(`[ShopPlugin] handleCallback: shop_sell_ data: ${data}`);
+      const remainingString = data.replace('shop_sell_', '');
+      let shopId = '';
+      let itemId = '';
+
+      // Iterate through known shop IDs to find a match
+      const allShops = this.db.getShops();
+      for (const sId in allShops) {
+        if (remainingString.startsWith(sId + '_')) {
+          shopId = sId;
+          itemId = remainingString.substring(sId.length + 1);
+          break;
+        }
+      }
+
+      if (!shopId || !itemId) {
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Invalid callback data format or shop/item not found!' });
+        return true;
+      }
+      console.log(`[ShopPlugin] handleCallback: Extracted shopId: ${shopId}, itemId: ${itemId}`);
+
+      const item = this.db.getItem(itemId);
+      if (!item) {
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Item not found!' });
+        return true;
+      }
       
-      await this.bot.answerCallbackQuery(callbackQuery.id, 'Processing sale...');
-      await this.processSell(callbackQuery.message.chat.id, userId, shopId, itemId, quantity);
+      await this.bot.answerCallbackQuery(callbackQuery.id, {});
+      if (item.type === 'consumable' || item.type === 'etc') {
+        await this.askForQuantity(callbackQuery.message.chat.id, userId, 'sell', shopId, itemId);
+      } else {
+        await this.processSell(callbackQuery.message.chat.id, userId, shopId, itemId, 1);
+      }
+      return true;
+    }
+    
+    if (data.startsWith('shop_quantity_')) {
+      console.log(`[ShopPlugin] handleCallback: shop_quantity_ data: ${data}`);
+      const parts = data.replace('shop_quantity_', '').split('_');
+      const type = parts[0];
+      const quantity = parseInt(parts[parts.length - 1]);
+      const remainingString = parts.slice(1, parts.length - 1).join('_');
+      console.log(`[ShopPlugin] handleCallback (shop_quantity_): type: ${type}, quantity: ${quantity}, remainingString: ${remainingString}`);
+
+      let shopId = '';
+      let itemId = '';
+
+      // Iterate through known shop IDs to find a match
+      const allShops = this.db.getShops();
+      for (const sId in allShops) {
+        if (remainingString.startsWith(sId + '_')) {
+          shopId = sId;
+          itemId = remainingString.substring(sId.length + 1);
+          break;
+        }
+      }
+      console.log(`[ShopPlugin] handleCallback (shop_quantity_): Extracted shopId: ${shopId}, itemId: ${itemId}`);
+
+      if (!shopId || !itemId) {
+        console.log(`[ShopPlugin] handleCallback (shop_quantity_): Invalid shopId or itemId. Answering callback with error.`);
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Invalid callback data format or shop/item not found!' });
+        return true;
+      }
+
+      console.log(`[ShopPlugin] handleCallback (shop_quantity_): Processing quantity for type: ${type}, shopId: ${shopId}, itemId: ${itemId}, quantity: ${quantity}`);
+      if (type === 'buy') {
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Processing purchase...' });
+        await this.processBuy(callbackQuery.message.chat.id, userId, shopId, itemId, quantity);
+      } else if (type === 'sell') {
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Processing sale...' });
+        await this.processSell(callbackQuery.message.chat.id, userId, shopId, itemId, quantity);
+      }
+      return true;
+    }
+
+    if (data.startsWith('shop_cancel_')) {
+      console.log(`[ShopPlugin] handleCallback: shop_cancel_ data: ${data}`);
+      const remainingString = data.replace('shop_cancel_', '');
+      const firstUnderscoreIndex = remainingString.indexOf('_');
+      if (firstUnderscoreIndex === -1) {
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Invalid callback data format!' });
+        return true;
+      }
+      const type = remainingString.substring(0, firstUnderscoreIndex);
+      const shopIdString = remainingString.substring(firstUnderscoreIndex + 1);
+
+      let shopId = '';
+      const allShops = this.db.getShops();
+      for (const sId in allShops) {
+        if (shopIdString === sId || shopIdString.startsWith(sId + '_')) {
+          shopId = sId;
+          break;
+        }
+      }
+
+      if (!shopId) {
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Invalid shop ID in callback data!' });
+        return true;
+      }
+
+      console.log(`[ShopPlugin] handleCallback (shop_cancel_): type: ${type}, shopId: ${shopId}`);
+
+      await this.bot.answerCallbackQuery(callbackQuery.id, {});
+      if (type === 'buy') {
+        await this.showShop(callbackQuery.message.chat.id, userId, shopId);
+      } else if (type === 'sell') {
+        await this.showSellMenu(callbackQuery.message.chat.id, userId, shopId);
+      }
       return true;
     }
 

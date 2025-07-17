@@ -48,13 +48,13 @@ class MapPlugin {
     await this.bot.sendMessage(msg.chat.id,
       `🗺️ *${map.name}*\n\n` +
       `📍 Position: (${character.position.x}, ${character.position.y})\n\n` +
-      `\`\`\`\n${mapView}\n\`\`\`\n\n` +
-      `🚶 = You\n` +
-      `🟩 = Grass\n` +
-      `🌳 = Tree\n` +
-      `🌊 = Water\n` +
-      `🧱 = Wall\n` +
-      `⬜ = Floor`,
+      `\`\`\`\n${mapView}\n\`\`\`\n`,
+      // `🚶 = You\n` +
+      // `🟩 = Grass\n` +
+      // `🌳 = Tree\n` +
+      // `🌊 = Water\n` +
+      // `🧱 = Wall\n` +
+      // `⬜ = Floor`,
       { parse_mode: 'Markdown', reply_markup: keyboard }
     );
   }
@@ -204,7 +204,8 @@ class MapPlugin {
       `A wild ${monster.name} (Level ${monster.level}) appears!\n\n` +
       `💀 HP: ${monster.hp}\n` +
       `⚔️ Attack: ${monster.attack}\n` +
-      `🛡️ Defense: ${monster.defense}\n\n` +
+      `🛡️ Defense: ${monster.defense}\n` +
+      `✨ EXP Reward: ${monster.exp}\n\n` +
       `What do you want to do?`,
       { parse_mode: 'Markdown', reply_markup: keyboard }
     );

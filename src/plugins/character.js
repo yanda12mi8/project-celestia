@@ -121,23 +121,34 @@ class CharacterPlugin {
       ]
     };
 
-    await this.bot.sendMessage(msg.chat.id,
-      `👤 *${character.name}* *(${character.id})*\n\n` +
-      `🏅 Class: ${character.class}\n` +
-      `📊 Level: ${character.level}\n` +
-      `✨ EXP: ${character.exp}/${character.expToNext}\n` +
-      `❤️ HP: ${character.stats.hp}/${character.stats.maxHp}\n` +
-      `💙 SP: ${character.stats.sp}/${character.stats.maxSp}\n` +
-      `🗺️ Location: ${character.position.map} (${character.position.x}, ${character.position.y})\n` +
-      `💰 Zeny: ${character.inventory.zeny}\n\n` +
-      `⚔️ Attack: ${character.stats.attack}\n` +
-      `🛡️ Defense: ${character.stats.defense}\n` +
-      `💨 Agility: ${character.stats.agility}\n` +
-      `🧠 Intelligence: ${character.stats.intelligence}\n` +
-      `❤️ Vitality: ${character.stats.vitality}\n` +
-      `🍀 Luck: ${character.stats.luck}`,
-      { parse_mode: 'Markdown', reply_markup: keyboard }
-    );
+    const hpBar = this.createProgressBar(character.stats.hp, character.stats.maxHp, 10, '❤️', '🤍');
+    const spBar = this.createProgressBar(character.stats.sp, character.stats.maxSp, 10, '💙', '🤍');
+    const expBar = this.createProgressBar(character.exp, character.expToNext, 10, '🟩', '⬜');
+
+    const statusMessage = `
+    👤 *${character.name}* - (${character.id})
+    
+    JOB : ${character.class}
+    LEVEL : ${character.level}
+    *[ STATUS ]*
+    ❤️ HP:  ${hpBar} ${character.stats.hp}/${character.stats.maxHp}
+    💙 SP:  ${spBar} ${character.stats.sp}/${character.stats.maxSp}
+    ✨ EXP: ${expBar} ${character.exp}/${character.expToNext}
+
+    *[ ATTRIBUTES ]*
+    ⚔️ ATK: ${character.stats.attack}   | 🛡️ DEF: ${character.stats.defense}
+    💨 AGI: ${character.stats.agility}  | 🧠 INT: ${character.stats.intelligence}
+    ❤️ VIT: ${character.stats.vitality} | 🍀 LUK: ${character.stats.luck}
+
+    *[ INFO ]*
+    💰 Zeny: ${character.inventory.zeny}
+    🗺️ Location: ${character.position.map}
+    `;
+
+    await this.bot.sendMessage(msg.chat.id, statusMessage, {
+      parse_mode: 'Markdown',
+      reply_markup: keyboard
+    });
   }
 
   async handleStats(msg) {
@@ -226,7 +237,11 @@ class CharacterPlugin {
     if (categorizedItems.equipment.length > 0) {
       inventoryText += '⚔️ *Equipment*\n';
       for (const item of categorizedItems.equipment) {
-        inventoryText += `• ${item.name} x${item.quantity} - (${item.description})\n`;
+        let statsText = '';
+        if (item.stats) {
+            statsText = Object.entries(item.stats).map(([stat, value]) => `${stat.toUpperCase()}: ${value}`).join(', ');
+        }
+        inventoryText += `• ${item.name} x${item.quantity} - (${statsText || 'No stats'})\n`;
         keyboard.inline_keyboard.push([{ text: `Equip ${item.name}`, callback_data: `equip_item_${item.id}` }]);
       }
       inventoryText += '\n';
@@ -279,7 +294,8 @@ class CharacterPlugin {
           equipmentText += `${this.getEquipmentIcon(slot)} ${slot}: ${item.name}\n`;
           keyboard.inline_keyboard.push([{ text: `Unequip ${item.name}`, callback_data: `unequip_item_${slot}` }]);
         }
-      } else {
+      }
+      else {
         equipmentText += `${this.getEquipmentIcon(slot)} ${slot}: *Not equipped*\n`;
       }
     }
@@ -290,6 +306,52 @@ class CharacterPlugin {
     });
   }
 
+  async handleUse(msg) {
+    const userId = msg.from.id;
+    const character = this.gameEngine.getCharacter(userId);
+
+    if (!character) {
+      await this.bot.sendMessage(msg.chat.id,
+        `❌ You don't have a character! Use /create <name> to create one.`
+      );
+      return;
+    }
+
+    const args = msg.text.split(' ').slice(1);
+    if (args.length < 1) {
+      await this.bot.sendMessage(msg.chat.id,
+        `❌ Usage: /use <item_id>\n` +
+        `Example: /use red_potion`
+      );
+      return;
+    }
+
+    const itemId = args[0];
+    const item = this.db.getItem(itemId);
+
+    if (!item) {
+      await this.bot.sendMessage(msg.chat.id, `❌ Item not found!`);
+      return;
+    }
+
+    if (!character.inventory.items[itemId] || character.inventory.items[itemId] <= 0) {
+      await this.bot.sendMessage(msg.chat.id, `❌ You don't have ${item.name} in your inventory!`);
+      return;
+    }
+
+    const result = this.gameEngine.useItem(userId, itemId);
+
+    if (result.success) {
+      await this.bot.sendMessage(msg.chat.id, `✅ ${result.message}`);
+      // Optionally update inventory display after use
+      setTimeout(async () => {
+        await this.handleInventory({ chat: msg.chat, from: msg.from });
+      }, 500);
+    } else {
+      await this.bot.sendMessage(msg.chat.id, `❌ ${result.message}`);
+    }
+  }
+
   getEquipmentIcon(slot) {
     switch (slot) {
       case 'weapon': return '⚔️';
@@ -297,6 +359,13 @@ class CharacterPlugin {
       case 'accessory': return '💍';
       default: return '📦';
     }
+  }
+
+  createProgressBar(current, max, length = 10, filledChar = '█', emptyChar = '░') {
+    const percentage = Math.max(0, Math.min(1, current / max));
+    const filledLength = Math.round(percentage * length);
+    const emptyLength = length - filledLength;
+    return `${filledChar.repeat(filledLength)}${emptyChar.repeat(emptyLength)}`;
   }
 
   async handleCallback(callbackQuery) {
@@ -360,10 +429,20 @@ class CharacterPlugin {
       
       character.stats[stat]++;
       character.statusPoints--;
+
+      // Apply stat-specific bonuses
+      if (stat === 'vitality') {
+        character.stats.maxHp += 15; // Increase Max HP by 15 for each VIT point
+        character.stats.hp += 15;    // Also heal the character for the same amount
+      }
+      if (stat === 'intelligence') {
+        character.stats.maxSp += 10; // Increase Max SP by 10 for each INT point
+        character.stats.sp += 10;    // Also restore SP for the same amount
+      }
       
       this.gameEngine.updateCharacter(userId, character);
       
-      await this.bot.answerCallbackQuery(callbackQuery.id, { text: `${stat} increased!` });
+      await this.bot.answerCallbackQuery(callbackQuery.id, { text: `${stat.toUpperCase()} increased!` });
       
       // Update the stats display
       setTimeout(async () => {
@@ -375,17 +454,22 @@ class CharacterPlugin {
 
     if (data.startsWith('use_item_')) {
       const itemId = data.replace('use_item_', '');
-      const success = this.gameEngine.useItem(userId, itemId);
-      
-      if (success) {
-        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Item used!' });
-        
+      const result = this.gameEngine.useItem(userId, itemId);
+
+      // Always answer the callback query to remove the "loading" state
+      await this.bot.answerCallbackQuery(callbackQuery.id);
+
+      if (result.success) {
+        // Send a message to the chat about the item used
+        await this.bot.sendMessage(callbackQuery.message.chat.id, `✅ ${result.message}`);
+
         // Update inventory display
         setTimeout(async () => {
           await this.handleInventory({ chat: callbackQuery.message.chat, from: callbackQuery.from });
         }, 500);
       } else {
-        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Cannot use this item!' });
+        // Send a failure message to the chat
+        await this.bot.sendMessage(callbackQuery.message.chat.id, `❌ ${result.message}`);
       }
       return true;
     }

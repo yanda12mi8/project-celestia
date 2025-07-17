@@ -164,7 +164,11 @@ class CombatPlugin {
     
     for (const res of results) {
       if (res.type === 'attack') {
-        message += `${res.attacker} attacks ${res.target} for ${res.damage} damage!\n`;
+        message += `💥 ${res.attacker} attacks ${res.target} for ${res.damage} damage!\n`;
+      } else if (res.type === 'critical') {
+        message += `💥 *CRITICAL HIT!* ${res.attacker} attacks ${res.target} for ${res.damage} damage!\n`;
+      } else if (res.type === 'evade') {
+        message += `💨 ${res.target} evaded the attack from ${res.attacker}!\n`;
       } else if (res.type === 'victory') {
         message += `\n🎉 *Victory!*\n`;
         message += `You defeated the ${combat.monster.name}!\n`;
@@ -305,23 +309,34 @@ class CombatPlugin {
 
     if (data.startsWith('use_combat_item_')) {
       const itemId = data.replace('use_combat_item_', '');
-      const success = this.gameEngine.useItem(userId, itemId);
-      
-      if (success) {
-        const item = this.db.getItem(itemId);
-        await this.bot.answerCallbackQuery(callbackQuery.id, { text: `Used ${item.name}!` });
-        
+      const result = this.gameEngine.useItem(userId, itemId);
+
+      // Always answer the callback query to remove the "loading" state
+      await this.bot.answerCallbackQuery(callbackQuery.id);
+
+      if (result.success) {
+        // Send a message to the chat about the item used
+        await this.bot.sendMessage(callbackQuery.message.chat.id, `✅ ${result.message}`);
+
         // Continue combat
         const combat = this.gameEngine.getCombat(userId);
-        if (combat) {
+        if (combat && combat.status === 'active') {
           combat.turn = 'monster';
-          const result = this.gameEngine.performAttack(userId);
-          if (result) {
-            await this.processCombatResult(callbackQuery.message.chat.id, userId, result);
+          const attackResult = this.gameEngine.performAttack(userId);
+          if (attackResult) {
+            // Use a timeout to make the flow feel more natural
+            setTimeout(async () => {
+              await this.processCombatResult(callbackQuery.message.chat.id, userId, attackResult);
+            }, 1500);
           }
         }
       } else {
-        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Failed to use item!' });
+        // Send a failure message to the chat
+        await this.bot.sendMessage(callbackQuery.message.chat.id, `❌ ${result.message}`);
+        // Show combat status again so the user can choose another action
+        setTimeout(async () => {
+            await this.showCombatStatus(callbackQuery.message.chat.id, userId);
+        }, 500);
       }
       return true;
     }

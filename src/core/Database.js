@@ -8,7 +8,7 @@ class Database {
     this.users = new Map();
     this.characters = new Map();
     this.guilds = new Map();
-    this.items = new Map();
+    this.items = {};
     this.monsters = new Map();
     this.maps = new Map();
     this.quests = new Map();
@@ -107,9 +107,9 @@ class Database {
     try {
       if (await fs.pathExists(itemsFile)) {
         const data = await fs.readJSON(itemsFile);
-        this.items = new Map(Object.entries(data));
+        this.items = data; // Assign the entire grouped data
       } else {
-        // Initialize default items
+        // Initialize default items if file doesn't exist
         await this.initializeDefaultItems();
       }
     } catch (error) {
@@ -241,19 +241,24 @@ class Database {
       console.error('Error loading expanded items:', error);
       // Fallback to basic items
       defaultItems = {
-        'red_potion': {
-          id: 'red_potion',
-          name: 'Red Potion',
-          type: 'consumable',
-          description: 'Restores 50 HP',
-          price: 50,
-          effect: { hp: 50 }
+        'consumable': {
+          'red_potion': {
+            id: 'red_potion',
+            name: 'Red Potion',
+            type: 'consumable',
+            description: 'Restores 50 HP',
+            price: 50,
+            effect: { hp: 50 }
+          }
         }
       };
     }
 
-    for (const [id, item] of Object.entries(defaultItems)) {
-      this.items.set(id, item);
+    for (const type in defaultItems) {
+      for (const itemId in defaultItems[type]) {
+        this.items[type] = this.items[type] || {};
+        this.items[type][itemId] = defaultItems[type][itemId];
+      }
     }
     
     await this.saveItems();
@@ -416,8 +421,7 @@ class Database {
   async saveItems() {
     const itemsFile = path.join(this.dataDir, 'items.json');
     try {
-      const data = Object.fromEntries(this.items);
-      await fs.writeJSON(itemsFile, data, { spaces: 2 });
+      await fs.writeJSON(itemsFile, this.items, { spaces: 2 });
     } catch (error) {
       console.error('Error saving items:', error);
     }
@@ -485,11 +489,25 @@ class Database {
 
   // Item methods
   getItem(itemId) {
-    return this.items.get(itemId);
+    console.log(`[Database] getItem: Searching for itemId: '${itemId}'`);
+    console.log(`[Database] getItem: Current items structure keys: ${Object.keys(this.items).join(', ')}`);
+    for (const type in this.items) {
+      console.log(`[Database] getItem: Checking type: '${type}'`);
+      if (this.items[type][itemId]) {
+        console.log(`[Database] getItem: Found item '${itemId}' in type '${type}'`);
+        return this.items[type][itemId];
+      }
+    }
+    console.log(`[Database] getItem: Item '${itemId}' not found in any type.`);
+    return null;
   }
 
   getAllItems() {
-    return Array.from(this.items.values());
+    let allItems = [];
+    for (const type in this.items) {
+      allItems = allItems.concat(Object.values(this.items[type]));
+    }
+    return allItems;
   }
 
   // Monster methods
@@ -535,7 +553,8 @@ class Database {
 
   // Shop methods
   getShop(shopId) {
-    return this.shops.get(shopId);
+    const shop = this.shops.get(shopId);
+    return shop;
   }
 
   setShop(shopId, shopData) {
@@ -545,6 +564,10 @@ class Database {
 
   getShops() {
     return Object.fromEntries(this.shops);
+  }
+
+  getShopsByLocation(location) {
+    return Array.from(this.shops.values()).filter(shop => shop.location === location);
   }
 
   async saveShops() {

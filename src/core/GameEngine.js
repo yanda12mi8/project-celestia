@@ -178,18 +178,28 @@ class GameEngine {
     const combat = this.activeCombats.get(userId);
     if (!combat || combat.status !== 'active') return null;
 
+    const character = this.getCharacter(userId);
+    if (!character) return null;
+
     const results = [];
 
     if (combat.turn === 'player') {
       // Player attack
+      const critChance = Math.min(50, character.stats.luck * 0.5); // 0.5% crit chance per LUK point, max 50%
+      const isCritical = Math.random() * 100 < critChance;
       const baseDamage = combat.player.attack - combat.monster.defense;
-      const damage = Math.max(1, baseDamage + Math.floor(Math.random() * 5)); // Add some randomness
+      let damage = Math.max(1, baseDamage + Math.floor(Math.random() * 5)); // Add some randomness
+      
+      if (isCritical) {
+        damage = Math.floor(damage * 1.5); // 150% damage on critical
+      }
+
       combat.monster.hp -= damage;
       results.push({
         attacker: combat.player.name,
         target: combat.monster.name,
         damage: damage,
-        type: 'attack'
+        type: isCritical ? 'critical' : 'attack'
       });
 
       if (combat.monster.hp <= 0) {
@@ -204,21 +214,34 @@ class GameEngine {
 
     if (combat.turn === 'monster' && combat.status === 'active') {
       // Monster attack
-      const baseDamage = combat.monster.attack - combat.player.defense;
-      const damage = Math.max(1, baseDamage + Math.floor(Math.random() * 3)); // Add some randomness
-      combat.player.hp -= damage;
-      results.push({
-        attacker: combat.monster.name,
-        target: combat.player.name,
-        damage: damage,
-        type: 'attack'
-      });
+      const evasionChance = Math.min(75, character.stats.agility * 0.2); // 0.2% evasion per AGI point, max 75%
+      const isEvaded = Math.random() * 100 < evasionChance;
 
-      if (combat.player.hp <= 0) {
-        combat.status = 'defeat';
-        results.push({ type: 'defeat' });
-        this.endCombat(userId);
+      if (isEvaded) {
+        results.push({
+            attacker: combat.monster.name,
+            target: combat.player.name,
+            type: 'evade'
+        });
       } else {
+        const baseDamage = combat.monster.attack - combat.player.defense;
+        const damage = Math.max(1, baseDamage + Math.floor(Math.random() * 3)); // Add some randomness
+        combat.player.hp -= damage;
+        results.push({
+            attacker: combat.monster.name,
+            target: combat.player.name,
+            damage: damage,
+            type: 'attack'
+        });
+
+        if (combat.player.hp <= 0) {
+            combat.status = 'defeat';
+            results.push({ type: 'defeat' });
+            this.endCombat(userId);
+        }
+      }
+
+      if (combat.status === 'active') {
         combat.turn = 'player';
       }
     }
@@ -259,19 +282,22 @@ class GameEngine {
       if (combat.monster.drops && combat.monster.drops.length > 0) {
         // Check each possible drop with individual drop rates
         for (const drop of combat.monster.drops) {
-          const dropChance = Math.random() * 100; // Convert to percentage
-          let dropId, dropRate, quantity = 1;
-          
+          let dropId, baseRate, quantity = 1;
+
           // Handle both old format (string) and new format (object)
           if (typeof drop === 'string') {
             dropId = drop;
-            dropRate = 30; // Default 30% for old format
+            baseRate = 30; // Default 30% for old format
           } else {
             dropId = drop.item;
-            dropRate = drop.rate;
+            baseRate = drop.rate;
             quantity = drop.quantity || 1;
           }
-          
+
+          // LUK increases drop rate by a small amount (e.g., 0.1% per LUK point)
+          const dropRate = Math.min(100, baseRate + (character.stats.luck * 0.1));
+          const dropChance = Math.random() * 100;
+
           if (dropChance < dropRate) {
             const item = this.db.getItem(dropId);
             if (item) {
@@ -334,31 +360,68 @@ class GameEngine {
   useItem(userId, itemId) {
     const character = this.getCharacter(userId);
     const item = this.db.getItem(itemId);
-    
+    const combat = this.getCombat(userId);
+
     if (!character || !item || !character.inventory.items[itemId] || character.inventory.items[itemId] <= 0) {
-      return false;
+      return { success: false, message: 'Item not found or you do not have it.' };
     }
 
     if (item.type === 'consumable' && item.effect) {
+      let messageParts = [];
+      
+      // Determine the source of truth for current stats
+      const currentHp = combat ? combat.player.hp : character.stats.hp;
+      const currentSp = character.stats.sp; // Combat doesn't track SP
+
+      const maxHp = character.stats.maxHp;
+      const maxSp = character.stats.maxSp;
+
+      let finalHp = currentHp;
+      let finalSp = currentSp;
+
       // Apply item effects
       if (item.effect.hp) {
-        character.stats.hp = Math.min(character.stats.maxHp, character.stats.hp + item.effect.hp);
+        const newHp = Math.min(maxHp, currentHp + item.effect.hp);
+        const hpHealed = newHp - currentHp;
+        if (hpHealed > 0) {
+          finalHp = newHp;
+          messageParts.push(`recovers ${hpHealed} HP`);
+        }
       }
       if (item.effect.sp) {
-        character.stats.sp = Math.min(character.stats.maxSp, character.stats.sp + item.effect.sp);
+        const newSp = Math.min(maxSp, currentSp + item.effect.sp);
+        const spHealed = newSp - currentSp;
+        if (spHealed > 0) {
+          finalSp = newSp;
+          messageParts.push(`recovers ${spHealed} SP`);
+        }
       }
+
+      if (messageParts.length === 0) {
+        return { success: false, message: `You are already at full HP/SP.` };
+      }
+
+      // Update the character in the database
+      character.stats.hp = finalHp;
+      character.stats.sp = finalSp;
 
       // Remove item from inventory
       character.inventory.items[itemId]--;
       if (character.inventory.items[itemId] <= 0) {
         delete character.inventory.items[itemId];
       }
-
       this.updateCharacter(userId, character);
-      return true;
+
+      // If in combat, update the combat object as well
+      if (combat) {
+        combat.player.hp = finalHp;
+      }
+      
+      const message = `You used ${item.name} and ${messageParts.join(' and ')}.`;
+      return { success: true, message: message };
     }
 
-    return false;
+    return { success: false, message: `You cannot use ${item.name}.` };
   }
 
   equipItem(userId, itemId) {
