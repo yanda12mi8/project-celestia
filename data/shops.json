@@ -1,0 +1,175 @@
+{
+  "prontera_weapon_shop": {
+    "id": "prontera_weapon_shop",
+    "name": "Prontera Weapon Shop",
+    "npc": "Weapon Dealer",
+    "location": "prontera",
+    "type": "buy_sell",
+    "buy_rate": 1,
+    "sell_rate": 0.5,
+    "items": [
+      {
+        "item": "iron_sword",
+        "stock": -1
+      },
+      {
+        "item": "steel_sword",
+        "stock": 5
+      },
+      {
+        "item": "goblin_dagger",
+        "stock": 10
+      }
+    ]
+  },
+  "prontera_armor_shop": {
+    "id": "prontera_armor_shop",
+    "name": "Prontera Armor Shop",
+    "npc": "Armor Dealer",
+    "location": "prontera",
+    "type": "buy_sell",
+    "buy_rate": 1,
+    "sell_rate": 0.5,
+    "items": [
+      {
+        "item": "leather_armor",
+        "stock": -1
+      },
+      {
+        "item": "chain_mail",
+        "stock": 7
+      },
+      {
+        "item": "leather_boots",
+        "stock": 15
+      }
+    ]
+  },
+  "prontera_potion_shop": {
+    "id": "prontera_potion_shop",
+    "name": "Prontera Potion Shop",
+    "npc": "Potion Seller",
+    "location": "prontera",
+    "type": "buy_only",
+    "buy_rate": 1,
+    "sell_rate": 0,
+    "items": [
+      {
+        "item": "red_potion",
+        "stock": -1
+      },
+      {
+        "item": "blue_potion",
+        "stock": -1
+      },
+      {
+        "item": "yellow_potion",
+        "stock": -1
+      },
+      {
+        "item": "white_potion",
+        "stock": 20
+      }
+    ]
+  },
+  "prontera_material_shop": {
+    "id": "prontera_material_shop",
+    "name": "Prontera Material Shop",
+    "npc": "Material Trader",
+    "location": "prontera",
+    "type": "buy_sell",
+    "buy_rate": 1.2,
+    "sell_rate": 0.8,
+    "items": [
+      {
+        "item": "iron_ore",
+        "stock": 50
+      },
+      {
+        "item": "leather",
+        "stock": 30
+      },
+      {
+        "item": "thread",
+        "stock": 100
+      },
+      {
+        "item": "herb",
+        "stock": 40
+      }
+    ]
+  },
+  "geffen_magic_shop": {
+    "id": "geffen_magic_shop",
+    "name": "Geffen Magic Shop",
+    "npc": "Magic Dealer",
+    "location": "geffen",
+    "type": "buy_sell",
+    "buy_rate": 1.1,
+    "sell_rate": 0.6,
+    "items": [
+      {
+        "item": "blue_herb",
+        "stock": 20
+      },
+      {
+        "item": "yellow_herb",
+        "stock": 10
+      },
+      {
+        "item": "mithril_ore",
+        "stock": 3
+      }
+    ]
+  },
+  "payon_general_store": {
+    "id": "payon_general_store",
+    "name": "Payon General Store",
+    "npc": "General Merchant",
+    "location": "payon",
+    "type": "buy_sell",
+    "buy_rate": 0.9,
+    "sell_rate": 0.7,
+    "items": [
+      {
+        "item": "red_potion",
+        "stock": -1
+      },
+      {
+        "item": "leather",
+        "stock": 25
+      },
+      {
+        "item": "thread",
+        "stock": 50
+      },
+      {
+        "item": "jellopy",
+        "stock": 100
+      }
+    ]
+  },
+  "alberta_port_shop": {
+    "id": "alberta_port_shop",
+    "name": "Alberta Port Shop",
+    "npc": "Port Trader",
+    "location": "alberta",
+    "type": "buy_sell",
+    "buy_rate": 1.3,
+    "sell_rate": 0.4,
+    "items": [
+      {
+        "item": "steel_ingot",
+        "stock": 15
+      },
+      {
+        "item": "plate_armor",
+        "stock": 2
+      },
+      {
+        "item": "chitin_armor",
+        "stock": 3
+      }
+    ]
+  }
+}

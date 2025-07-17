@@ -1,0 +1,451 @@
+{
+  "crafting": {
+    "iron_sword": {
+      "name": "Iron Sword",
+      "result": {
+        "item": "iron_sword",
+        "quantity": 1
+      },
+      "materials": [
+        { "item": "iron_ore", "quantity": 3 },
+        { "item": "coal", "quantity": 2 }
+      ],
+      "zeny_cost": 500,
+      "craft_time": 30,
+      "success_rate": 85,
+      "required_skill": "blacksmithing",
+      "skill_level": 1
+    },
+    "steel_sword": {
+      "name": "Steel Sword",
+      "result": {
+        "item": "steel_sword",
+        "quantity": 1
+      },
+      "materials": [
+        { "item": "steel_ore", "quantity": 2 },
+        { "item": "iron_ore", "quantity": 1 },
+        { "item": "coal", "quantity": 3 }
+      ],
+      "zeny_cost": 1200,
+      "craft_time": 45,
+      "success_rate": 70,
+      "required_skill": "blacksmithing",
+      "skill_level": 3
+    },
+    "mithril_sword": {
+      "name": "Mithril Sword",
+      "result": {
+        "item": "mithril_sword",
+        "quantity": 1
+      },
+      "materials": [
+        { "item": "mithril_ore", "quantity": 2 },
+        { "item": "steel_ore", "quantity": 1 },
+        { "item": "coal", "quantity": 4 },
+        { "item": "magic_crystal", "quantity": 1 }
+      ],
+      "zeny_cost": 3000,
+      "craft_time": 60,
+      "success_rate": 55,
+      "required_skill": "blacksmithing",
+      "skill_level": 5
+    },
+    "leather_armor": {
+      "name": "Leather Armor",
+      "result": {
+        "item": "leather_armor",
+        "quantity": 1
+      },
+      "materials": [
+        { "item": "leather", "quantity": 4 },
+        { "item": "thread", "quantity": 2 }
+      ],
+      "zeny_cost": 300,
+      "craft_time": 25,
+      "success_rate": 90,
+      "required_skill": "tailoring",
+      "skill_level": 1
+    },
+    "chain_mail": {
+      "name": "Chain Mail",
+      "result": {
+        "item": "chain_mail",
+        "quantity": 1
+      },
+      "materials": [
+        { "item": "iron_ore", "quantity": 5 },
+        { "item": "coal", "quantity": 2 },
+        { "item": "thread", "quantity": 3 }
+      ],
+      "zeny_cost": 800,
+      "craft_time": 40,
+      "success_rate": 75,
+      "required_skill": "blacksmithing",
+      "skill_level": 2
+    },
+    "plate_armor": {
+      "name": "Plate Armor",
+      "result": {
+        "item": "plate_armor",
+        "quantity": 1
+      },
+      "materials": [
+        { "item": "steel_ore", "quantity": 6 },
+        { "item": "iron_ore", "quantity": 2 },
+        { "item": "coal", "quantity": 4 }
+      ],
+      "zeny_cost": 2000,
+      "craft_time": 55,
+      "success_rate": 65,
+      "required_skill": "blacksmithing",
+      "skill_level": 4
+    },
+    "wooden_bow": {
+      "name": "Wooden Bow",
+      "result": {
+        "item": "wooden_bow",
+        "quantity": 1
+      },
+      "materials": [
+        { "item": "wood", "quantity": 3 },
+        { "item": "string", "quantity": 1 }
+      ],
+      "zeny_cost": 200,
+      "craft_time": 20,
+      "success_rate": 95,
+      "required_skill": "woodworking",
+      "skill_level": 1
+    },
+    "composite_bow": {
+      "name": "Composite Bow",
+      "result": {
+        "item": "composite_bow",
+        "quantity": 1
+      },
+      "materials": [
+        { "item": "hardwood", "quantity": 2 },
+        { "item": "horn", "quantity": 1 },
+        { "item": "sinew", "quantity": 2 },
+        { "item": "string", "quantity": 1 }
+      ],
+      "zeny_cost": 1000,
+      "craft_time": 50,
+      "success_rate": 70,
+      "required_skill": "woodworking",
+      "skill_level": 3
+    },
+    "arrows": {
+      "name": "Arrows",
+      "result": {
+        "item": "arrow",
+        "quantity": 50
+      },
+      "materials": [
+        { "item": "wood", "quantity": 1 },
+        { "item": "iron_ore", "quantity": 1 },
+        { "item": "feather", "quantity": 3 }
+      ],
+      "zeny_cost": 50,
+      "craft_time": 15,
+      "success_rate": 98,
+      "required_skill": "woodworking",
+      "skill_level": 1
+    },
+    "silver_arrows": {
+      "name": "Silver Arrows",
+      "result": {
+        "item": "silver_arrow",
+        "quantity": 30
+      },
+      "materials": [
+        { "item": "hardwood", "quantity": 1 },
+        { "item": "silver_ore", "quantity": 1 },
+        { "item": "feather", "quantity": 5 }
+      ],
+      "zeny_cost": 200,
+      "craft_time": 25,
+      "success_rate": 85,
+      "required_skill": "woodworking",
+      "skill_level": 2
+    },
+    "magic_ring": {
+      "name": "Magic Ring",
+      "result": {
+        "item": "magic_ring",
+        "quantity": 1
+      },
+      "materials": [
+        { "item": "silver_ore", "quantity": 1 },
+        { "item": "magic_crystal", "quantity": 2 },
+        { "item": "gem", "quantity": 1 }
+      ],
+      "zeny_cost": 1500,
+      "craft_time": 35,
+      "success_rate": 60,
+      "required_skill": "enchanting",
+      "skill_level": 2
+    },
+    "power_ring": {
+      "name": "Power Ring",
+      "result": {
+        "item": "power_ring",
+        "quantity": 1
+      },
+      "materials": [
+        { "item": "gold_ore", "quantity": 1 },
+        { "item": "magic_crystal", "quantity": 3 },
+        { "item": "ruby", "quantity": 1 }
+      ],
+      "zeny_cost": 3500,
+      "craft_time": 50,
+      "success_rate": 45,
+      "required_skill": "enchanting",
+      "skill_level": 4
+    },
+    "leather_boots": {
+      "name": "Leather Boots",
+      "result": {
+        "item": "leather_boots",
+        "quantity": 1
+      },
+      "materials": [
+        { "item": "leather", "quantity": 2 },
+        { "item": "thread", "quantity": 1 }
+      ],
+      "zeny_cost": 150,
+      "craft_time": 20,
+      "success_rate": 92,
+      "required_skill": "tailoring",
+      "skill_level": 1
+    },
+    "iron_boots": {
+      "name": "Iron Boots",
+      "result": {
+        "item": "iron_boots",
+        "quantity": 1
+      },
+      "materials": [
+        { "item": "iron_ore", "quantity": 3 },
+        { "item": "leather", "quantity": 1 },
+        { "item": "coal", "quantity": 1 }
+      ],
+      "zeny_cost": 400,
+      "craft_time": 30,
+      "success_rate": 80,
+      "required_skill": "blacksmithing",
+      "skill_level": 2
+    }
+  },
+  "brewing": {
+    "red_potion": {
+      "name": "Red Potion",
+      "result": {
+        "item": "red_potion",
+        "quantity": 3
+      },
+      "materials": [
+        { "item": "red_herb", "quantity": 2 },
+        { "item": "water", "quantity": 1 }
+      ],
+      "zeny_cost": 30,
+      "brew_time": 10,
+      "success_rate": 95,
+      "required_skill": "alchemy",
+      "skill_level": 1
+    },
+    "blue_potion": {
+      "name": "Blue Potion",
+      "result": {
+        "item": "blue_potion",
+        "quantity": 2
+      },
+      "materials": [
+        { "item": "blue_herb", "quantity": 2 },
+        { "item": "water", "quantity": 1 },
+        { "item": "magic_powder", "quantity": 1 }
+      ],
+      "zeny_cost": 80,
+      "brew_time": 15,
+      "success_rate": 90,
+      "required_skill": "alchemy",
+      "skill_level": 1
+    },
+    "yellow_potion": {
+      "name": "Yellow Potion",
+      "result": {
+        "item": "yellow_potion",
+        "quantity": 2
+      },
+      "materials": [
+        { "item": "yellow_herb", "quantity": 2 },
+        { "item": "honey", "quantity": 1 },
+        { "item": "water", "quantity": 1 }
+      ],
+      "zeny_cost": 50,
+      "brew_time": 12,
+      "success_rate": 92,
+      "required_skill": "alchemy",
+      "skill_level": 1
+    },
+    "white_potion": {
+      "name": "White Potion",
+      "result": {
+        "item": "white_potion",
+        "quantity": 1
+      },
+      "materials": [
+        { "item": "white_herb", "quantity": 3 },
+        { "item": "red_herb", "quantity": 1 },
+        { "item": "water", "quantity": 1 },
+        { "item": "magic_powder", "quantity": 1 }
+      ],
+      "zeny_cost": 150,
+      "brew_time": 25,
+      "success_rate": 85,
+      "required_skill": "alchemy",
+      "skill_level": 2
+    },
+    "concentration_potion": {
+      "name": "Concentration Potion",
+      "result": {
+        "item": "concentration_potion",
+        "quantity": 1
+      },
+      "materials": [
+        { "item": "green_herb", "quantity": 2 },
+        { "item": "magic_crystal", "quantity": 1 },
+        { "item": "water", "quantity": 1 }
+      ],
+      "zeny_cost": 200,
+      "brew_time": 20,
+      "success_rate": 80,
+      "required_skill": "alchemy",
+      "skill_level": 2
+    },
+    "awakening_potion": {
+      "name": "Awakening Potion",
+      "result": {
+        "item": "awakening_potion",
+        "quantity": 1
+      },
+      "materials": [
+        { "item": "blue_herb", "quantity": 3 },
+        { "item": "magic_crystal", "quantity": 2 },
+        { "item": "honey", "quantity": 1 },
+        { "item": "water", "quantity": 1 }
+      ],
+      "zeny_cost": 300,
+      "brew_time": 30,
+      "success_rate": 75,
+      "required_skill": "alchemy",
+      "skill_level": 3
+    },
+    "speed_potion": {
+      "name": "Speed Potion",
+      "result": {
+        "item": "speed_potion",
+        "quantity": 1
+      },
+      "materials": [
+        { "item": "yellow_herb", "quantity": 2 },
+        { "item": "feather", "quantity": 3 },
+        { "item": "magic_powder", "quantity": 1 },
+        { "item": "water", "quantity": 1 }
+      ],
+      "zeny_cost": 250,
+      "brew_time": 25,
+      "success_rate": 78,
+      "required_skill": "alchemy",
+      "skill_level": 2
+    },
+    "strength_potion": {
+      "name": "Strength Potion",
+      "result": {
+        "item": "strength_potion",
+        "quantity": 1
+      },
+      "materials": [
+        { "item": "red_herb", "quantity": 3 },
+        { "item": "horn", "quantity": 1 },
+        { "item": "magic_crystal", "quantity": 1 },
+        { "item": "water", "quantity": 1 }
+      ],
+      "zeny_cost": 280,
+      "brew_time": 28,
+      "success_rate": 76,
+      "required_skill": "alchemy",
+      "skill_level": 3
+    },
+    "poison": {
+      "name": "Poison",
+      "result": {
+        "item": "poison",
+        "quantity": 5
+      },
+      "materials": [
+        { "item": "poison_herb", "quantity": 2 },
+        { "item": "spider_web", "quantity": 1 },
+        { "item": "water", "quantity": 1 }
+      ],
+      "zeny_cost": 100,
+      "brew_time": 18,
+      "success_rate": 88,
+      "required_skill": "alchemy",
+      "skill_level": 2
+    },
+    "antidote": {
+      "name": "Antidote",
+      "result": {
+        "item": "antidote",
+        "quantity": 3
+      },
+      "materials": [
+        { "item": "green_herb", "quantity": 2 },
+        { "item": "white_herb", "quantity": 1 },
+        { "item": "water", "quantity": 1 }
+      ],
+      "zeny_cost": 60,
+      "brew_time": 15,
+      "success_rate": 90,
+      "required_skill": "alchemy",
+      "skill_level": 1
+    },
+    "elixir": {
+      "name": "Elixir",
+      "result": {
+        "item": "elixir",
+        "quantity": 1
+      },
+      "materials": [
+        { "item": "white_herb", "quantity": 5 },
+        { "item": "blue_herb", "quantity": 3 },
+        { "item": "magic_crystal", "quantity": 3 },
+        { "item": "holy_water", "quantity": 1 }
+      ],
+      "zeny_cost": 1000,
+      "brew_time": 60,
+      "success_rate": 50,
+      "required_skill": "alchemy",
+      "skill_level": 5
+    },
+    "berserk_potion": {
+      "name": "Berserk Potion",
+      "result": {
+        "item": "berserk_potion",
+        "quantity": 1
+      },
+      "materials": [
+        { "item": "red_herb", "quantity": 4 },
+        { "item": "orc_blood", "quantity": 1 },
+        { "item": "magic_crystal", "quantity": 2 },
+        { "item": "water", "quantity": 1 }
+      ],
+      "zeny_cost": 500,
+      "brew_time": 40,
+      "success_rate": 65,
+      "required_skill": "alchemy",
+      "skill_level": 4
+    }
+  }
+}

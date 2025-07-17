@@ -1,0 +1,242 @@
+{
+  "crafting": {
+    "iron_sword": {
+      "name": "Iron Sword",
+      "result": {
+        "item": "iron_sword",
+        "quantity": 1
+      },
+      "materials": [
+        {
+          "item": "iron_ore",
+          "quantity": 3
+        },
+        {
+          "item": "thread",
+          "quantity": 1
+        }
+      ],
+      "zeny_cost": 100,
+      "craft_time": 30,
+      "success_rate": 85
+    },
+    "steel_sword": {
+      "name": "Steel Sword",
+      "result": {
+        "item": "steel_sword",
+        "quantity": 1
+      },
+      "materials": [
+        {
+          "item": "steel_ingot",
+          "quantity": 2
+        },
+        {
+          "item": "iron_ore",
+          "quantity": 1
+        },
+        {
+          "item": "thread",
+          "quantity": 2
+        }
+      ],
+      "zeny_cost": 500,
+      "craft_time": 60,
+      "success_rate": 70
+    },
+    "mithril_sword": {
+      "name": "Mithril Sword",
+      "result": {
+        "item": "mithril_sword",
+        "quantity": 1
+      },
+      "materials": [
+        {
+          "item": "mithril_ore",
+          "quantity": 3
+        },
+        {
+          "item": "steel_ingot",
+          "quantity": 1
+        },
+        {
+          "item": "thread",
+          "quantity": 3
+        }
+      ],
+      "zeny_cost": 2000,
+      "craft_time": 120,
+      "success_rate": 50
+    },
+    "leather_armor": {
+      "name": "Leather Armor",
+      "result": {
+        "item": "leather_armor",
+        "quantity": 1
+      },
+      "materials": [
+        {
+          "item": "leather",
+          "quantity": 5
+        },
+        {
+          "item": "thread",
+          "quantity": 3
+        }
+      ],
+      "zeny_cost": 50,
+      "craft_time": 25,
+      "success_rate": 90
+    },
+    "chain_mail": {
+      "name": "Chain Mail",
+      "result": {
+        "item": "chain_mail",
+        "quantity": 1
+      },
+      "materials": [
+        {
+          "item": "iron_ore",
+          "quantity": 8
+        },
+        {
+          "item": "thread",
+          "quantity": 5
+        }
+      ],
+      "zeny_cost": 300,
+      "craft_time": 45,
+      "success_rate": 75
+    },
+    "plate_armor": {
+      "name": "Plate Armor",
+      "result": {
+        "item": "plate_armor",
+        "quantity": 1
+      },
+      "materials": [
+        {
+          "item": "steel_ingot",
+          "quantity": 5
+        },
+        {
+          "item": "iron_ore",
+          "quantity": 3
+        },
+        {
+          "item": "thread",
+          "quantity": 8
+        }
+      ],
+      "zeny_cost": 1000,
+      "craft_time": 90,
+      "success_rate": 60
+    },
+    "steel_ingot": {
+      "name": "Steel Ingot",
+      "result": {
+        "item": "steel_ingot",
+        "quantity": 1
+      },
+      "materials": [
+        {
+          "item": "iron_ore",
+          "quantity": 5
+        }
+      ],
+      "zeny_cost": 50,
+      "craft_time": 20,
+      "success_rate": 95
+    }
+  },
+  "brewing": {
+    "red_potion": {
+      "name": "Red Potion",
+      "result": {
+        "item": "red_potion",
+        "quantity": 3
+      },
+      "materials": [
+        {
+          "item": "herb",
+          "quantity": 2
+        },
+        {
+          "item": "jellopy",
+          "quantity": 1
+        }
+      ],
+      "zeny_cost": 20,
+      "brew_time": 15,
+      "success_rate": 95
+    },
+    "blue_potion": {
+      "name": "Blue Potion",
+      "result": {
+        "item": "blue_potion",
+        "quantity": 2
+      },
+      "materials": [
+        {
+          "item": "blue_herb",
+          "quantity": 2
+        },
+        {
+          "item": "jellopy",
+          "quantity": 2
+        }
+      ],
+      "zeny_cost": 50,
+      "brew_time": 20,
+      "success_rate": 85
+    },
+    "yellow_potion": {
+      "name": "Yellow Potion",
+      "result": {
+        "item": "yellow_potion",
+        "quantity": 2
+      },
+      "materials": [
+        {
+          "item": "yellow_herb",
+          "quantity": 1
+        },
+        {
+          "item": "herb",
+          "quantity": 3
+        },
+        {
+          "item": "jellopy",
+          "quantity": 2
+        }
+      ],
+      "zeny_cost": 80,
+      "brew_time": 30,
+      "success_rate": 75
+    },
+    "white_potion": {
+      "name": "White Potion",
+      "result": {
+        "item": "white_potion",
+        "quantity": 1
+      },
+      "materials": [
+        {
+          "item": "yellow_herb",
+          "quantity": 2
+        },
+        {
+          "item": "blue_herb",
+          "quantity": 2
+        },
+        {
+          "item": "herb",
+          "quantity": 5
+        }
+      ],
+      "zeny_cost": 200,
+      "brew_time": 60,
+      "success_rate": 60
+    }
+  }
+}

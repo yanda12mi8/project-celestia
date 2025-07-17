@@ -1,0 +1,457 @@
+{
+  "consumable": {
+    "red_potion": {
+      "id": "red_potion",
+      "name": "Red Potion",
+      "type": "consumable",
+      "description": "Restores 50 HP",
+      "price": 50,
+      "effect": { "hp": 50 }
+    },
+    "blue_potion": {
+      "id": "blue_potion",
+      "name": "Blue Potion",
+      "type": "consumable",
+      "description": "Restores 30 SP",
+      "price": 100,
+      "effect": { "sp": 30 }
+    },
+    "yellow_potion": {
+      "id": "yellow_potion",
+      "name": "Yellow Potion",
+      "type": "consumable",
+      "description": "Restores 100 HP",
+      "price": 150,
+      "effect": { "hp": 100 }
+    },
+    "white_potion": {
+      "id": "white_potion",
+      "name": "White Potion",
+      "type": "consumable",
+      "description": "Restores 200 HP",
+      "price": 400,
+      "effect": { "hp": 200 }
+    },
+    "apple": {
+      "id": "apple",
+      "name": "Apple",
+      "type": "consumable",
+      "description": "A fresh apple that restores 15 HP",
+      "price": 15,
+      "effect": { "hp": 15 }
+    },
+    "orange": {
+      "id": "orange",
+      "name": "Orange",
+      "type": "consumable",
+      "description": "A juicy orange that restores 20 HP",
+      "price": 20,
+      "effect": { "hp": 20 }
+    },
+    "honey": {
+      "id": "honey",
+      "name": "Honey",
+      "type": "consumable",
+      "description": "Sweet honey that restores 25 HP and 15 SP",
+      "price": 80,
+      "effect": { "hp": 25, "sp": 15 }
+    },
+    "royal_jelly": {
+      "id": "royal_jelly",
+      "name": "Royal Jelly",
+      "type": "consumable",
+      "description": "Rare jelly that fully restores HP and SP",
+      "price": 1000,
+      "effect": { "hp": 999, "sp": 999 }
+    },
+    "raw_meat": {
+      "id": "raw_meat",
+      "name": "Raw Meat",
+      "type": "consumable",
+      "description": "Raw meat that restores 30 HP",
+      "price": 40,
+      "effect": { "hp": 30 }
+    }
+  },
+  "etc": {
+    "jellopy": {
+      "id": "jellopy",
+      "name": "Jellopy",
+      "type": "etc",
+      "description": "A sticky substance from Poring",
+      "price": 6
+    },
+    "zeny_pouch": {
+      "id": "zeny_pouch",
+      "name": "Zeny Pouch",
+      "type": "etc",
+      "description": "A small pouch containing some Zeny",
+      "price": 100
+    },
+    "bone": {
+      "id": "bone",
+      "name": "Bone",
+      "type": "etc",
+      "description": "A bone from an undead creature",
+      "price": 10
+    },
+    "skull": {
+      "id": "skull",
+      "name": "Skull",
+      "type": "etc",
+      "description": "A skull from a skeleton",
+      "price": 50
+    },
+    "rotten_flesh": {
+      "id": "rotten_flesh",
+      "name": "Rotten Flesh",
+      "type": "etc",
+      "description": "Decaying flesh from a zombie",
+      "price": 5
+    },
+    "zombie_tooth": {
+      "id": "zombie_tooth",
+      "name": "Zombie Tooth",
+      "type": "etc",
+      "description": "A tooth from a zombie",
+      "price": 25
+    },
+    "orc_tooth": {
+      "id": "orc_tooth",
+      "name": "Orc Tooth",
+      "type": "etc",
+      "description": "A sharp tooth from an orc",
+      "price": 30
+    },
+    "arrow": {
+      "id": "arrow",
+      "name": "Arrow",
+      "type": "etc",
+      "description": "Standard arrows for bows",
+      "price": 2
+    },
+    "mana_crystal": {
+      "id": "mana_crystal",
+      "name": "Mana Crystal",
+      "type": "etc",
+      "description": "A crystal containing magical energy",
+      "price": 200
+    },
+    "ant_jaw": {
+      "id": "ant_jaw",
+      "name": "Ant Jaw",
+      "type": "etc",
+      "description": "A powerful jaw from a giant ant",
+      "price": 80
+    },
+    "chitin_piece": {
+      "id": "chitin_piece",
+      "name": "Chitin Piece",
+      "type": "etc",
+      "description": "A piece of hard chitin shell",
+      "price": 45
+    },
+    "ant_leg": {
+      "id": "ant_leg",
+      "name": "Ant Leg",
+      "type": "etc",
+      "description": "A leg from a giant ant",
+      "price": 35
+    },
+    "ant_egg": {
+      "id": "ant_egg",
+      "name": "Ant Egg",
+      "type": "etc",
+      "description": "An egg from a giant ant",
+      "price": 120
+    },
+    "ant_queen_wing": {
+      "id": "ant_queen_wing",
+      "name": "Ant Queen Wing",
+      "type": "etc",
+      "description": "A rare wing from the Ant Queen",
+      "price": 2000
+    },
+    "iron_ore": {
+      "id": "iron_ore",
+      "name": "Iron Ore",
+      "type": "etc",
+      "description": "Raw iron ore for crafting",
+      "price": 100
+    },
+    "gold_coin": {
+      "id": "gold_coin",
+      "name": "Gold Coin",
+      "type": "etc",
+      "description": "A valuable gold coin",
+      "price": 500
+    },
+    "wolf_fang": {
+      "id": "wolf_fang",
+      "name": "Wolf Fang",
+      "type": "etc",
+      "description": "A sharp fang from a wolf",
+      "price": 60
+    },
+    "wolf_pelt": {
+      "id": "wolf_pelt",
+      "name": "Wolf Pelt",
+      "type": "etc",
+      "description": "A warm pelt from a wolf",
+      "price": 150
+    },
+    "bear_claw": {
+      "id": "bear_claw",
+      "name": "Bear Claw",
+      "type": "etc",
+      "description": "A powerful claw from a bear",
+      "price": 200
+    },
+    "bear_pelt": {
+      "id": "bear_pelt",
+      "name": "Bear Pelt",
+      "type": "etc",
+      "description": "A thick pelt from a bear",
+      "price": 400
+    },
+    "leather": {
+      "id": "leather",
+      "name": "Leather",
+      "type": "etc",
+      "description": "Tanned animal hide",
+      "price": 100
+    },
+    "thread": {
+      "id": "thread",
+      "name": "Thread",
+      "type": "etc",
+      "description": "A spool of thread",
+      "price": 100
+    },
+    "herb": {
+      "id": "herb",
+      "name": "Herb",
+      "type": "etc",
+      "description": "A common herb",
+      "price": 100
+    },
+    "blue_herb": {
+      "id": "blue_herb",
+      "name": "Blue Herb",
+      "type": "etc",
+      "description": "A rare blue herb",
+      "price": 100
+    },
+    "yellow_herb": {
+      "id": "yellow_herb",
+      "name": "Yellow Herb",
+      "type": "etc",
+      "description": "A rare yellow herb",
+      "price": 100
+    },
+    "mithril_ore": {
+      "id": "mithril_ore",
+      "name": "Mithril Ore",
+      "type": "etc",
+      "description": "A very rare and strong ore",
+      "price": 100
+    },
+    "steel_ingot": {
+      "id": "steel_ingot",
+      "name": "Steel Ingot",
+      "type": "etc",
+      "description": "A bar of refined steel",
+      "price": 100
+    }
+  },
+  "weapon": {
+    "goblin_dagger": {
+      "id": "goblin_dagger",
+      "name": "Goblin Dagger",
+      "type": "weapon",
+      "description": "A crude dagger made by goblins",
+      "price": 200,
+      "stats": { "attack": 15 }
+    },
+    "iron_sword": {
+      "id": "iron_sword",
+      "name": "Iron Sword",
+      "type": "weapon",
+      "description": "A sturdy iron sword",
+      "price": 500,
+      "stats": { "attack": 25 }
+    },
+    "orc_axe": {
+      "id": "orc_axe",
+      "name": "Orc Axe",
+      "type": "weapon",
+      "description": "A heavy axe wielded by orc warriors",
+      "price": 1200,
+      "stats": { "attack": 40, "vitality": 2 }
+    },
+    "orc_bow": {
+      "id": "orc_bow",
+      "name": "Orc Bow",
+      "type": "weapon",
+      "description": "A bow crafted by orc archers",
+      "price": 900,
+      "stats": { "attack": 35, "agility": 3 }
+    },
+    "magic_staff": {
+      "id": "magic_staff",
+      "name": "Magic Staff",
+      "type": "weapon",
+      "description": "A staff imbued with magical power",
+      "price": 1500,
+      "stats": { "attack": 30, "intelligence": 8 }
+    },
+    "orc_lord_axe": {
+      "id": "orc_lord_axe",
+      "name": "Orc Lord Axe",
+      "type": "weapon",
+      "description": "The mighty axe of the Orc Lord",
+      "price": 5000,
+      "stats": { "attack": 80, "vitality": 8, "luck": 3 }
+    },
+    "wooden_bow": {
+      "id": "wooden_bow",
+      "name": "Wooden Bow",
+      "type": "weapon",
+      "description": "A simple wooden bow",
+      "price": 300,
+      "stats": { "attack": 20, "agility": 2 }
+    },
+    "hobgoblin_club": {
+      "id": "hobgoblin_club",
+      "name": "Hobgoblin Club",
+      "type": "weapon",
+      "description": "A heavy club used by hobgoblins",
+      "price": 600,
+      "stats": { "attack": 30, "vitality": 3 }
+    },
+    "king_sword": {
+      "id": "king_sword",
+      "name": "King Sword",
+      "type": "weapon",
+      "description": "The royal sword of the Goblin King",
+      "price": 3500,
+      "stats": { "attack": 60, "luck": 5, "agility": 3 }
+    },
+    "steel_sword": {
+      "id": "steel_sword",
+      "name": "Steel Sword",
+      "type": "weapon",
+      "description": "A strong steel sword",
+      "price": 100,
+      "stats": {}
+    }
+  },
+  "armor": {
+    "leather_boots": {
+      "id": "leather_boots",
+      "name": "Leather Boots",
+      "type": "armor",
+      "description": "Simple leather boots",
+      "price": 150,
+      "stats": { "defense": 3, "agility": 2 }
+    },
+    "chain_mail": {
+      "id": "chain_mail",
+      "name": "Chain Mail",
+      "type": "armor",
+      "description": "Protective chain mail armor",
+      "price": 800,
+      "stats": { "defense": 15, "vitality": 3 }
+    },
+    "orc_armor": {
+      "id": "orc_armor",
+      "name": "Orc Armor",
+      "type": "armor",
+      "description": "Crude but effective orc armor",
+      "price": 1000,
+      "stats": { "defense": 20, "vitality": 5 }
+    },
+    "leather_armor": {
+      "id": "leather_armor",
+      "name": "Leather Armor",
+      "type": "armor",
+      "description": "Basic leather armor",
+      "price": 400,
+      "stats": { "defense": 8, "agility": 1 }
+    },
+    "magic_robe": {
+      "id": "magic_robe",
+      "name": "Magic Robe",
+      "type": "armor",
+      "description": "A robe that enhances magical abilities",
+      "price": 2000,
+      "stats": { "defense": 12, "intelligence": 10, "maxSp": 20 }
+    },
+    "orc_lord_armor": {
+      "id": "orc_lord_armor",
+      "name": "Orc Lord Armor",
+      "type": "armor",
+      "description": "The legendary armor of the Orc Lord",
+      "price": 4500,
+      "stats": { "defense": 40, "vitality": 12, "maxHp": 50 }
+    },
+    "chitin_armor": {
+      "id": "chitin_armor",
+      "name": "Chitin Armor",
+      "type": "armor",
+      "description": "Armor made from ant chitin",
+      "price": 2500,
+      "stats": { "defense": 30, "vitality": 6, "agility": -2 }
+    },
+    "fur_coat": {
+      "id": "fur_coat",
+      "name": "Fur Coat",
+      "type": "armor",
+      "description": "A warm coat made from bear fur",
+      "price": 1800,
+      "stats": { "defense": 18, "vitality": 8, "agility": -1 }
+    },
+    "plate_armor": {
+      "id": "plate_armor",
+      "name": "Plate Armor",
+      "type": "armor",
+      "description": "Heavy plate armor",
+      "price": 100,
+      "stats": {}
+    }
+  },
+  "accessory": {
+    "orc_crown": {
+      "id": "orc_crown",
+      "name": "Orc Crown",
+      "type": "accessory",
+      "description": "A crown that symbolizes orc leadership",
+      "price": 8000,
+      "stats": { "attack": 10, "defense": 10, "luck": 5 }
+    },
+    "queen_crown": {
+      "id": "queen_crown",
+      "name": "Queen Crown",
+      "type": "accessory",
+      "description": "The crown of the Ant Queen",
+      "price": 10000,
+      "stats": { "intelligence": 15, "maxSp": 30, "luck": 8 }
+    },
+    "leather_gloves": {
+      "id": "leather_gloves",
+      "name": "Leather Gloves",
+      "type": "accessory",
+      "description": "Simple leather gloves",
+      "price": 100,
+      "stats": { "attack": 3, "agility": 1 }
+    },
+    "goblin_crown": {
+      "id": "goblin_crown",
+      "name": "Goblin Crown",
+      "type": "accessory",
+      "description": "The crown of the Goblin King",
+      "price": 3000,
+      "stats": { "attack": 8, "defense": 8, "luck": 10 }
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "party_359d5a55": {
+    "id": "party_359d5a55",
+    "name": "GB EXP",
+    "leader": 948962959,
+    "members": [
+      948962959,
+      7298873273
+    ],
+    "created": 1752755679746,
+    "description": "GB EXP - A new party ready for adventure!",
+    "settings": {
+      "expShare": true,
+      "itemShare": false,
+      "maxMembers": 4,
+      "afk": false
+    },
+    "stats": {
+      "dungeonsCleared": 0,
+      "monstersKilled": 0,
+      "totalExp": 0
+    }
+  }
+}

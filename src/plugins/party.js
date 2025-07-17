@@ -245,6 +245,18 @@ What would you like to do?
             await this.bot.sendMessage(chatId, '❌ You are not the party leader.');
           }
           return true;
+        
+        case 'party_setting_afk':
+          console.log(`[PartyPlugin] Entered case: party_setting_afk for user ${userId}`);
+          if (party && party.leader === userId) {
+            party.settings.afk = !party.settings.afk;
+            this.parties.set(party.id, party);
+            await this.bot.sendMessage(chatId, `😴 AFK is now ${party.settings.afk ? 'Enabled' : 'Disabled'}.`);
+            await this._showPartySettingsMenu(chatId, party);
+          } else {
+            await this.bot.sendMessage(chatId, '❌ You are not the party leader.');
+          }
+          return true;
 
         case 'party_setting_max_members':
           console.log(`[PartyPlugin] Entered case: party_setting_max_members for user ${userId}`);
@@ -292,7 +304,8 @@ What would you like to do?
       settings: {
         expShare: true,
         itemShare: false,
-        maxMembers: this.gameEngine.config.game.maxPartySize || 6
+        maxMembers: this.gameEngine.config.game.maxPartySize || 6,
+        afk: false
       },
       stats: {
         dungeonsCleared: 0,
@@ -348,7 +361,7 @@ What would you like to do?
     this.invitations.set(inviteId, {
       partyId: party.id,
       inviterId: userId,
-      targetId: targetCharacter.id.toString(),
+      targetId: targetCharacter.id,
       expiresAt: Date.now() + (5 * 60 * 1000) // 5 minutes
     });
 
@@ -362,13 +375,11 @@ What would you like to do?
     };
 
     try {
-      await this.bot.sendMessage(targetCharacter.id.toString(),
+      await this.bot.sendMessage(targetCharacter.id,
         `👥 *Party Invitation*
 
 ` +
-        `${character.name} has invited you to join "${party.name}"!
-
-` +
+        `${character.name} has invited you to join "${party.name}"!\n\n` +
         `👑 Leader: ${character.name}
 ` +
         `📊 Members: ${party.members.length}/${party.settings.maxMembers}
@@ -429,6 +440,7 @@ What would you like to do?
       const memberChar = this.gameEngine.getCharacter(memberId);
       if (memberChar) {
         const role = memberId === party.leader ? '👑' : '👤';
+        const afkStatus = party.afkMembers.includes(memberId) ? ' (AFK)' : '';
         const location = memberChar.position.map;
         membersText += `${role} ${memberChar.name} - Lvl. ${memberChar.level}\n`;
         membersText += `   📍 Location: ${location}\n`;
@@ -503,47 +515,37 @@ What would you like to do?
   }
 
   async _acceptPartyInvite(chatId, userId, inviteId) {
-    const userIdStr = userId.toString(); // Convert userId to string for consistent comparison
-    console.log(`[PartyPlugin] _acceptPartyInvite called for userId: ${userIdStr}, inviteId: ${inviteId}`);
     const invitation = this.invitations.get(inviteId);
-    console.log(`[PartyPlugin] Invitation found: ${JSON.stringify(invitation)}`);
     if (!invitation) {
-      console.log('[PartyPlugin] Invitation not found.');
       return this.bot.sendMessage(chatId, '❌ Invitation expired or invalid.');
     }
     if (invitation.expiresAt < Date.now()) {
-      console.log('[PartyPlugin] Invitation expired.');
       return this.bot.sendMessage(chatId, '❌ Invitation expired or invalid.');
     }
-    if (invitation.targetId !== userIdStr) {
-      console.log(`[PartyPlugin] Invitation targetId (${invitation.targetId}) does not match userId (${userIdStr}).`);
+    if (invitation.targetId !== userId) {
       return this.bot.sendMessage(chatId, '❌ Invitation expired or invalid.');
     }
 
     const party = this.parties.get(invitation.partyId);
-    console.log(`[PartyPlugin] Party found: ${JSON.stringify(party)}`);
     if (!party) {
-      console.log('[PartyPlugin] Party no longer exists.');
       return this.bot.sendMessage(chatId, '❌ Party no longer exists!');
     }
-    if (this.getPlayerParty(userIdStr)) {
-      console.log('[PartyPlugin] User already in a party.');
+    if (this.getPlayerParty(userId)) {
       return this.bot.sendMessage(chatId, '❌ You are already in a party. Leave it first to accept a new invitation.');
     }
     if (party.members.length >= party.settings.maxMembers) {
-      console.log('[PartyPlugin] Party is full.');
       return this.bot.sendMessage(chatId, '❌ Party is full!');
     }
 
     // Add to party
-    party.members.push(userIdStr);
+    party.members.push(userId);
     this.invitations.delete(inviteId);
     this.db.setParty(party.id, party); // Save updated party to DB
 
-    const character = this.gameEngine.getCharacter(userIdStr);
+    const character = this.gameEngine.getCharacter(userId);
     await this.bot.sendMessage(chatId, `🎉 You have joined *${party.name}*!`);
-    await this.notifyPartyMembers(party, `🎉 ${character.name} has joined the party!`, userIdStr);
-    await this._showPartyMenu(chatId, userIdStr, party);
+    await this.notifyPartyMembers(party, `🎉 ${character.name} has joined the party!`, userId);
+    await this._showPartyMenu(chatId, userId, party);
   }
 
   async _declinePartyInvite(chatId, userId, inviteId) {
@@ -586,12 +588,24 @@ What would you like to do?
         [{ text: '📝 Change Description', callback_data: 'party_setting_description' }],
         [{ text: `📈 EXP Share: ${party.settings.expShare ? '✅ Enabled' : '❌ Disabled'}`, callback_data: 'party_setting_exp_share' }],
         [{ text: `🎁 Item Share: ${party.settings.itemShare ? '✅ Enabled' : '❌ Disabled'}`, callback_data: 'party_setting_item_share' }],
+        [{ text: `😴 AFK : ${party.settings.afk ? '✅ Enabled' : '❌ Disabled'}`, callback_data: 'party_setting_afk' }],
         [{ text: '👥 Set Max Members', callback_data: 'party_setting_max_members' }],
         [{ text: '🔙 Back to Party Menu', callback_data: 'party_menu_show' }]
       ]
     };
 
-    const message = `\n⚙️ *${party.name} - Party Settings*\n\n*Current Settings:*\nDescription: ${party.description}\nEXP Share: ${party.settings.expShare ? 'Enabled' : 'Disabled'}\nItem Share: ${party.settings.itemShare ? 'Enabled' : 'Disabled'}\nMax Members: ${party.settings.maxMembers}\n\nWhat would you like to change?\n    `;
+    const message = `
+⚙️ *${party.name} - Party Settings*
+
+*Current Settings:*
+Description: ${party.description}
+EXP Share: ${party.settings.expShare ? 'Enabled' : 'Disabled'}
+Item Share: ${party.settings.itemShare ? 'Enabled' : 'Disabled'}
+AFK : ${party.settings.afk ? 'Enabled' : 'Disabled'}
+Max Members: ${party.settings.maxMembers}
+
+What would you like to change?
+    `;
 
     await this.bot.sendMessage(chatId, message, { parse_mode: 'Markdown', reply_markup: keyboard });
   }
@@ -692,7 +706,7 @@ What would you like to do?
       `✨ Total EXP: ${party.stats.totalExp}\n\n` +
       `⚙️ *Settings:*\n` +
       `💰 EXP Share: ${party.settings.expShare ? '✅' : '❌'}\n` +
-      `🎁 Item Share: ${party.settings.itemShare ? '✅' : '❌'}`,
+      `🎁 Item Share: ${party.settings.itemShare ? '✅' : '❌'}`, 
       { parse_mode: 'Markdown', reply_markup: keyboard }
     );
   }

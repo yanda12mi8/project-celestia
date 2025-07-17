@@ -1,0 +1,293 @@
+{
+  "poring": {
+    "id": "poring",
+    "name": "Poring",
+    "level": 1,
+    "hp": 50,
+    "attack": 8,
+    "defense": 2,
+    "exp": 15,
+    "zeny": 25,
+    "drops": [
+      { "item": "jellopy", "rate": 60, "quantity": 1 },
+      { "item": "red_potion", "rate": 25, "quantity": 1 },
+      { "item": "apple", "rate": 15, "quantity": 1 }
+    ]
+  },
+  "drops": {
+    "id": "drops",
+    "name": "Drops",
+    "level": 2,
+    "hp": 75,
+    "attack": 12,
+    "defense": 3,
+    "exp": 25,
+    "zeny": 35,
+    "drops": [
+      { "item": "jellopy", "rate": 70, "quantity": 2 },
+      { "item": "red_potion", "rate": 30, "quantity": 1 },
+      { "item": "orange", "rate": 20, "quantity": 1 }
+    ]
+  },
+  "goblin": {
+    "id": "goblin",
+    "name": "Goblin",
+    "level": 5,
+    "hp": 120,
+    "attack": 18,
+    "defense": 5,
+    "exp": 45,
+    "zeny": 65,
+    "drops": [
+      { "item": "goblin_dagger", "rate": 8, "quantity": 1 },
+      { "item": "red_potion", "rate": 40, "quantity": 1 },
+      { "item": "zeny_pouch", "rate": 25, "quantity": 1 },
+      { "item": "leather_boots", "rate": 12, "quantity": 1 }
+    ]
+  },
+  "skeleton": {
+    "id": "skeleton",
+    "name": "Skeleton",
+    "level": 8,
+    "hp": 180,
+    "attack": 25,
+    "defense": 8,
+    "exp": 75,
+    "zeny": 85,
+    "drops": [
+      { "item": "bone", "rate": 50, "quantity": 1 },
+      { "item": "skull", "rate": 15, "quantity": 1 },
+      { "item": "blue_potion", "rate": 35, "quantity": 1 },
+      { "item": "iron_sword", "rate": 5, "quantity": 1 }
+    ]
+  },
+  "zombie": {
+    "id": "zombie",
+    "name": "Zombie",
+    "level": 10,
+    "hp": 220,
+    "attack": 30,
+    "defense": 10,
+    "exp": 95,
+    "zeny": 105,
+    "drops": [
+      { "item": "rotten_flesh", "rate": 45, "quantity": 1 },
+      { "item": "blue_potion", "rate": 30, "quantity": 1 },
+      { "item": "zombie_tooth", "rate": 20, "quantity": 1 },
+      { "item": "chain_mail", "rate": 7, "quantity": 1 }
+    ]
+  },
+  "orc_warrior": {
+    "id": "orc_warrior",
+    "name": "Orc Warrior",
+    "level": 15,
+    "hp": 350,
+    "attack": 45,
+    "defense": 15,
+    "exp": 150,
+    "zeny": 180,
+    "drops": [
+      { "item": "orc_axe", "rate": 10, "quantity": 1 },
+      { "item": "orc_armor", "rate": 8, "quantity": 1 },
+      { "item": "red_potion", "rate": 50, "quantity": 2 },
+      { "item": "blue_potion", "rate": 35, "quantity": 1 },
+      { "item": "orc_tooth", "rate": 25, "quantity": 1 }
+    ]
+  },
+  "orc_archer": {
+    "id": "orc_archer",
+    "name": "Orc Archer",
+    "level": 12,
+    "hp": 280,
+    "attack": 40,
+    "defense": 12,
+    "exp": 120,
+    "zeny": 150,
+    "drops": [
+      { "item": "orc_bow", "rate": 12, "quantity": 1 },
+      { "item": "arrow", "rate": 60, "quantity": 50 },
+      { "item": "red_potion", "rate": 45, "quantity": 1 },
+      { "item": "leather_armor", "rate": 15, "quantity": 1 }
+    ]
+  },
+  "orc_shaman": {
+    "id": "orc_shaman",
+    "name": "Orc Shaman",
+    "level": 18,
+    "hp": 300,
+    "attack": 50,
+    "defense": 20,
+    "exp": 180,
+    "zeny": 220,
+    "drops": [
+      { "item": "magic_staff", "rate": 8, "quantity": 1 },
+      { "item": "blue_potion", "rate": 55, "quantity": 2 },
+      { "item": "mana_crystal", "rate": 20, "quantity": 1 },
+      { "item": "magic_robe", "rate": 6, "quantity": 1 }
+    ]
+  },
+  "orc_lord": {
+    "id": "orc_lord",
+    "name": "Orc Lord",
+    "level": 25,
+    "hp": 800,
+    "attack": 80,
+    "defense": 30,
+    "exp": 500,
+    "zeny": 1000,
+    "drops": [
+      { "item": "orc_lord_axe", "rate": 15, "quantity": 1 },
+      { "item": "orc_lord_armor", "rate": 12, "quantity": 1 },
+      { "item": "red_potion", "rate": 80, "quantity": 5 },
+      { "item": "blue_potion", "rate": 70, "quantity": 3 },
+      { "item": "orc_crown", "rate": 5, "quantity": 1 }
+    ]
+  },
+  "ant_soldier": {
+    "id": "ant_soldier",
+    "name": "Ant Soldier",
+    "level": 20,
+    "hp": 450,
+    "attack": 55,
+    "defense": 18,
+    "exp": 200,
+    "zeny": 250,
+    "drops": [
+      { "item": "ant_jaw", "rate": 35, "quantity": 1 },
+      { "item": "chitin_piece", "rate": 40, "quantity": 1 },
+      { "item": "red_potion", "rate": 45, "quantity": 1 },
+      { "item": "ant_leg", "rate": 25, "quantity": 1 }
+    ]
+  },
+  "ant_worker": {
+    "id": "ant_worker",
+    "name": "Ant Worker",
+    "level": 18,
+    "hp": 380,
+    "attack": 45,
+    "defense": 15,
+    "exp": 160,
+    "zeny": 200,
+    "drops": [
+      { "item": "chitin_piece", "rate": 50, "quantity": 2 },
+      { "item": "ant_egg", "rate": 30, "quantity": 1 },
+      { "item": "blue_potion", "rate": 40, "quantity": 1 },
+      { "item": "honey", "rate": 20, "quantity": 1 }
+    ]
+  },
+  "ant_queen_guard": {
+    "id": "ant_queen_guard",
+    "name": "Ant Queen Guard",
+    "level": 22,
+    "hp": 550,
+    "attack": 65,
+    "defense": 22,
+    "exp": 280,
+    "zeny": 350,
+    "drops": [
+      { "item": "royal_jelly", "rate": 15, "quantity": 1 },
+      { "item": "chitin_armor", "rate": 10, "quantity": 1 },
+      { "item": "ant_jaw", "rate": 40, "quantity": 1 },
+      { "item": "blue_potion", "rate": 50, "quantity": 2 }
+    ]
+  },
+  "ant_queen": {
+    "id": "ant_queen",
+    "name": "Ant Queen",
+    "level": 30,
+    "hp": 1200,
+    "attack": 100,
+    "defense": 40,
+    "exp": 800,
+    "zeny": 2000,
+    "drops": [
+      { "item": "queen_crown", "rate": 20, "quantity": 1 },
+      { "item": "royal_jelly", "rate": 60, "quantity": 3 },
+      { "item": "chitin_armor", "rate": 25, "quantity": 1 },
+      { "item": "ant_queen_wing", "rate": 8, "quantity": 1 },
+      { "item": "blue_potion", "rate": 90, "quantity": 5 }
+    ]
+  },
+  "goblin_archer": {
+    "id": "goblin_archer",
+    "name": "Goblin Archer",
+    "level": 7,
+    "hp": 140,
+    "attack": 22,
+    "defense": 6,
+    "exp": 55,
+    "zeny": 75,
+    "drops": [
+      { "item": "wooden_bow", "rate": 15, "quantity": 1 },
+      { "item": "arrow", "rate": 70, "quantity": 20 },
+      { "item": "red_potion", "rate": 35, "quantity": 1 },
+      { "item": "leather_gloves", "rate": 18, "quantity": 1 }
+    ]
+  },
+  "hobgoblin": {
+    "id": "hobgoblin",
+    "name": "Hobgoblin",
+    "level": 12,
+    "hp": 250,
+    "attack": 35,
+    "defense": 12,
+    "exp": 110,
+    "zeny": 140,
+    "drops": [
+      { "item": "hobgoblin_club", "rate": 12, "quantity": 1 },
+      { "item": "red_potion", "rate": 50, "quantity": 2 },
+      { "item": "blue_potion", "rate": 30, "quantity": 1 },
+      { "item": "iron_ore", "rate": 25, "quantity": 1 }
+    ]
+  },
+  "goblin_king": {
+    "id": "goblin_king",
+    "name": "Goblin King",
+    "level": 20,
+    "hp": 600,
+    "attack": 70,
+    "defense": 25,
+    "exp": 400,
+    "zeny": 800,
+    "drops": [
+      { "item": "goblin_crown", "rate": 18, "quantity": 1 },
+      { "item": "king_sword", "rate": 12, "quantity": 1 },
+      { "item": "red_potion", "rate": 85, "quantity": 3 },
+      { "item": "blue_potion", "rate": 75, "quantity": 2 },
+      { "item": "gold_coin", "rate": 30, "quantity": 5 }
+    ]
+  },
+  "wolf": {
+    "id": "wolf",
+    "name": "Wolf",
+    "level": 8,
+    "hp": 160,
+    "attack": 28,
+    "defense": 8,
+    "exp": 65,
+    "zeny": 80,
+    "drops": [
+      { "item": "wolf_fang", "rate": 40, "quantity": 1 },
+      { "item": "wolf_pelt", "rate": 35, "quantity": 1 },
+      { "item": "red_potion", "rate": 30, "quantity": 1 },
+      { "item": "raw_meat", "rate": 50, "quantity": 1 }
+    ]
+  },
+  "bear": {
+    "id": "bear",
+    "name": "Bear",
+    "level": 15,
+    "hp": 400,
+    "attack": 50,
+    "defense": 20,
+    "exp": 180,
+    "zeny": 220,
+    "drops": [
+      { "item": "bear_claw", "rate": 30, "quantity": 1 },
+      { "item": "bear_pelt", "rate": 25, "quantity": 1 },
+      { "item": "honey", "rate": 45, "quantity": 2 },
+      { "item": "red_potion", "rate": 40, "quantity": 2 },
+      { "item": "fur_coat", "rate": 8, "quantity": 1 }
+    ]
+  }
+}

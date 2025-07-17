@@ -1,0 +1,103 @@
+{
+  "948962959": {
+    "id": 948962959,
+    "name": "xBoii",
+    "class": "novice",
+    "level": 9,
+    "exp": 326,
+    "expToNext": 427,
+    "stats": {
+      "hp": 197,
+      "maxHp": 210,
+      "sp": 90,
+      "maxSp": 90,
+      "attack": 42,
+      "defense": 25,
+      "agility": 10,
+      "intelligence": 10,
+      "vitality": 17,
+      "luck": 15
+    },
+    "statusPoints": 3,
+    "skillPoints": 4,
+    "inventory": {
+      "items": {
+        "leather": 1,
+        "jellopy": 21,
+        "red_potion": 17,
+        "zeny_pouch": 4,
+        "yellow_potion": 10,
+        "goblin_dagger": 1,
+        "apple": 1,
+        "leather_boots": 1
+      },
+      "zeny": 9679
+    },
+    "equipment": {
+      "weapon": "iron_sword",
+      "armor": "chain_mail",
+      "accessory": null
+    },
+    "position": {
+      "map": "prontera",
+      "x": 4,
+      "y": 5
+    },
+    "quests": {
+      "active": [],
+      "completed": []
+    },
+    "guild": "guild_dcf60bc3",
+    "lastLogin": 1752653394143,
+    "playtime": 0
+  },
+  "7298873273": {
+    "id": 7298873273,
+    "name": "HERO",
+    "class": "novice",
+    "level": 1,
+    "exp": 94,
+    "expToNext": 100,
+    "stats": {
+      "hp": 42,
+      "maxHp": 100,
+      "sp": 50,
+      "maxSp": 50,
+      "attack": 10,
+      "defense": 5,
+      "agility": 10,
+      "intelligence": 10,
+      "vitality": 10,
+      "luck": 10
+    },
+    "statusPoints": 0,
+    "skillPoints": 0,
+    "inventory": {
+      "items": {
+        "jellopy": 2,
+        "zeny_pouch": 1,
+        "leather_boots": 2,
+        "red_potion": 2,
+        "apple": 1
+      },
+      "zeny": 1144
+    },
+    "equipment": {
+      "weapon": null,
+      "armor": null,
+      "accessory": null
+    },
+    "position": {
+      "map": "prontera",
+      "x": 5,
+      "y": 5
+    },
+    "quests": {
+      "active": [],
+      "completed": []
+    },
+    "guild": "guild_dcf60bc3",
+    "lastLogin": 1752737865030,
+    "playtime": 0
+  }
+}

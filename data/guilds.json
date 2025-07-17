@@ -1,0 +1,20 @@
+{
+  "guild_dcf60bc3": {
+    "id": "guild_dcf60bc3",
+    "name": "Fanatic",
+    "leader": 948962959,
+    "members": [
+      948962959,
+      7298873273
+    ],
+    "created": 1752735328416,
+    "level": 1,
+    "exp": 0,
+    "treasury": 0,
+    "description": "Enjoy The Game",
+    "settings": {
+      "publicJoin": false,
+      "minLevel": 5
+    }
+  }
+}

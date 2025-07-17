@@ -1,0 +1,19 @@
+{
+  "first_quest": {
+    "id": "first_quest",
+    "name": "First Steps",
+    "description": "Kill 5 Porings",
+    "requirements": {
+      "kill": {
+        "poring": 5
+      }
+    },
+    "rewards": {
+      "exp": 100,
+      "items": [
+        "potion"
+      ]
+    },
+    "level": 1
+  }
+}
