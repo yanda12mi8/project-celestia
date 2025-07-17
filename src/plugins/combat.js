@@ -166,21 +166,34 @@ class CombatPlugin {
       if (res.type === 'attack') {
         message += `${res.attacker} attacks ${res.target} for ${res.damage} damage!\n`;
       } else if (res.type === 'victory') {
-        message += `\n🎉 *Victory!\n`;
+        message += `\n🎉 *Victory!*\n`;
         message += `You defeated the ${combat.monster.name}!\n`;
-        message += `Gained ${combat.monster.exp} EXP!\n`;
-        if (combat.monster.zeny) {
-          message += `💰 You found ${combat.monster.zeny} Zeny!\n`;
-        }
-        
-        if (combat.monster.drops && combat.monster.drops.length > 0) {
-          const drops = combat.monster.drops.join(', ');
-          message += `📦 Possible drops: ${drops}`;
-        }
       } else if (res.type === 'defeat') {
         message += `\n💀 *Defeat!*\n`;
         message += `You were defeated by the ${combat.monster.name}!\n`;
-        message += `You lost some experience...`;
+        message += `You lost some experience and were revived with 1 HP...`;
+      } else if (res.type === 'rewards') {
+        const rewards = res.rewards;
+        if (rewards.exp > 0) {
+          message += `✨ Gained ${rewards.exp} EXP!\n`;
+        } else if (rewards.exp < 0) {
+          message += `💀 Lost ${Math.abs(rewards.exp)} EXP!\n`;
+        }
+        
+        if (rewards.zeny > 0) {
+          message += `💰 Found ${rewards.zeny} Zeny!\n`;
+        }
+        
+        if (rewards.items.length > 0) {
+          message += `🎁 *Items obtained:*\n`;
+          for (const item of rewards.items) {
+            message += `• ${item.name} x${item.quantity}\n`;
+          }
+        }
+        
+        if (rewards.levelUp) {
+          message += `\n🎉 *LEVEL UP!* You are now stronger!\n`;
+        }
       }
     }
 

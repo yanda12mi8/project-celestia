@@ -138,7 +138,7 @@ class GameEngine {
     return character;
   }
 
-  """  startCombat(userId, monsterId) {
+  startCombat(userId, monsterId) {
     const character = this.getCharacter(userId);
     const monsterData = this.db.getMonster(monsterId);
     
@@ -182,7 +182,8 @@ class GameEngine {
 
     if (combat.turn === 'player') {
       // Player attack
-      const damage = Math.max(1, combat.player.attack - combat.monster.defense);
+      const baseDamage = combat.player.attack - combat.monster.defense;
+      const damage = Math.max(1, baseDamage + Math.floor(Math.random() * 5)); // Add some randomness
       combat.monster.hp -= damage;
       results.push({
         attacker: combat.player.name,
@@ -194,7 +195,8 @@ class GameEngine {
       if (combat.monster.hp <= 0) {
         combat.status = 'victory';
         results.push({ type: 'victory' });
-        this.endCombat(userId);
+        const rewards = this.endCombat(userId);
+        results.push({ type: 'rewards', rewards: rewards });
       } else {
         combat.turn = 'monster';
       }
@@ -202,7 +204,8 @@ class GameEngine {
 
     if (combat.turn === 'monster' && combat.status === 'active') {
       // Monster attack
-      const damage = Math.max(1, combat.monster.attack - combat.player.defense);
+      const baseDamage = combat.monster.attack - combat.player.defense;
+      const damage = Math.max(1, baseDamage + Math.floor(Math.random() * 3)); // Add some randomness
       combat.player.hp -= damage;
       results.push({
         attacker: combat.monster.name,
@@ -226,31 +229,54 @@ class GameEngine {
   endCombat(userId) {
     const combat = this.activeCombats.get(userId);
     if (!combat) return null;
+    
+    const character = this.getCharacter(userId);
+    if (!character) return null;
+    
+    // Update player HP to match combat HP
+    character.stats.hp = Math.max(0, combat.player.hp);
+    
+    const rewards = {
+      exp: 0,
+      zeny: 0,
+      items: [],
+      levelUp: false
+    };
 
     if (combat.status === 'victory') {
-      const character = this.getCharacter(userId);
-      if (!character) return;
 
       // Give EXP
-      character.exp += combat.monster.exp;
+      const expGained = combat.monster.exp;
+      character.exp += expGained;
+      rewards.exp = expGained;
       
       // Give Zeny
-      if (combat.monster.zeny) {
-        character.inventory.zeny += combat.monster.zeny;
+      const zenyGained = combat.monster.zeny || Math.floor(Math.random() * 50) + 10;
+      character.inventory.zeny += zenyGained;
+      rewards.zeny = zenyGained;
       }
 
       // Give item drops
       if (combat.monster.drops && combat.monster.drops.length > 0) {
-        const randomDrop = combat.monster.drops[Math.floor(Math.random() * combat.monster.drops.length)];
-        if (this.db.getItem(randomDrop)) {
+        // Check each possible drop with individual drop rates
+        for (const dropId of combat.monster.drops) {
+          const dropChance = Math.random();
+          if (dropChance < 0.3) { // 30% chance for each item
+            const item = this.db.getItem(dropId);
+            if (item) {
+              const quantity = 1;
             if (!character.inventory.items[randomDrop]) {
-              character.inventory.items[randomDrop] = 0;
+                character.inventory.items[dropId] = 0;
+              }
+              character.inventory.items[dropId] += quantity;
+              rewards.items.push({ id: dropId, name: item.name, quantity: quantity });
             }
-            character.inventory.items[randomDrop] += 1;
+          }
         }
       }
 
       // Check for level up
+      const oldLevel = character.level;
       while (character.exp >= character.expToNext) {
         character.exp -= character.expToNext;
         character.level++;
@@ -258,17 +284,24 @@ class GameEngine {
         
         character.stats.maxHp += 10;
         character.stats.maxSp += 5;
-        character.stats.hp = character.stats.maxHp;
+        character.stats.hp = character.stats.maxHp; // Full heal on level up
         character.stats.sp = character.stats.maxSp;
         character.statusPoints += 3;
         character.skillPoints += 1;
+        rewards.levelUp = true;
       }
-
-      this.updateCharacter(userId, character);
+    } else if (combat.status === 'defeat') {
+      // Player died - lose some EXP and reset HP to 1
+      const expLoss = Math.floor(character.exp * 0.1); // Lose 10% EXP
+      character.exp = Math.max(0, character.exp - expLoss);
+      character.stats.hp = 1; // Revive with 1 HP
+      rewards.exp = -expLoss;
     }
 
+    this.updateCharacter(userId, character);
+
     this.activeCombats.delete(userId);
-    return combat;
+    return rewards;
   }""
 
   getCombat(userId) {
