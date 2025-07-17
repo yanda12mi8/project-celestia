@@ -121,9 +121,9 @@ What would you like to do?
       const chatId = callbackQuery.message.chat.id;
       const data = callbackQuery.data;
 
-      console.log(`[PartyPlugin] Received callback: ${data}`);
-      console.log(`[PartyPlugin] Type of data: ${typeof data}`);
-      console.log(`[PartyPlugin] data === 'party_create_prompt': ${data === 'party_create_prompt'}`);
+      // console.log(`[PartyPlugin] Received callback: ${data}`);
+      // console.log(`[PartyPlugin] Type of data: ${typeof data}`);
+      // console.log(`[PartyPlugin] data === 'party_create_prompt': ${data === 'party_create_prompt'}`);
 
       await this.bot.answerCallbackQuery(callbackQuery.id);
 

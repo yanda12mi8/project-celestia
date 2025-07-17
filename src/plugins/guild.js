@@ -126,53 +126,65 @@ What would you like to do?
     }
     const guild = character.guild ? this.db.getGuild(character.guild) : null;
 
+    if (data.startsWith('accept_guild_invite_')) {
+      const guildIdFromInvite = data.substring('accept_guild_invite_'.length);
+      await this._acceptGuildInvite(chatId, userId, guildIdFromInvite);
+      return true;
+    }
+
+    if (data.startsWith('decline_guild_invite_')) {
+      const guildIdFromInvite = data.substring('decline_guild_invite_'.length);
+      await this._declineGuildInvite(chatId, userId, guildIdFromInvite);
+      return true;
+    }
+
     switch (data) {
       case 'guild_create_prompt':
         this.playerStates.set(userId, 'awaiting_guild_name');
         await this.bot.sendMessage(chatId, '📝 Please type the desired name for your new guild. (Cost: 10,000 Zeny)');
-        break;
+        return true;
 
       case 'guild_list_browse':
         await this._listGuilds(chatId);
-        break;
+        return true;
 
       case 'guild_invites_view':
         await this._listInvitations(chatId, userId);
-        break;
+        return true;
 
       case 'guild_members_view':
         if (guild) await this._listMembers(chatId, guild);
-        break;
+        return true;
       
       case 'guild_chat_prompt':
         this.playerStates.set(userId, 'awaiting_chat_message');
         await this.bot.sendMessage(chatId, '💬 Type the message you want to send to your guild.');
-        break;
+        return true;
 
       case 'guild_invite_prompt':
         this.playerStates.set(userId, 'awaiting_invitee_id');
         await this.bot.sendMessage(chatId, '👤 Please enter the Character ID of the player you want to invite.');
-        break;
+        return true;
 
       case 'guild_leave_confirm':
         await this.bot.sendMessage(chatId, 'Are you sure you want to leave the guild?', {
           reply_markup: { inline_keyboard: [[{ text: '✅ Yes, I want to leave', callback_data: 'guild_leave_execute' }, { text: '❌ Cancel', callback_data: 'guild_menu_show' }]] }
         });
-        break;
+        return true;
 
       case 'guild_leave_execute':
         await this._leaveGuild(chatId, userId);
-        break;
+        return true;
 
       case 'guild_disband_confirm':
         await this.bot.sendMessage(chatId, 'Are you absolutely sure you want to disband your guild? This action cannot be undone.', {
           reply_markup: { inline_keyboard: [[{ text: '✅ Yes, Disband Guild', callback_data: 'guild_disband_execute' }, { text: '❌ Cancel', callback_data: 'guild_menu_show' }]] }
         });
-        break;
+        return true;
 
       case 'guild_disband_execute':
         await this._disbandGuild(chatId, userId);
-        break;
+        return true;
 
       case 'guild_settings_menu':
         if (guild && guild.leader === userId) {
@@ -180,27 +192,17 @@ What would you like to do?
         } else {
           await this.bot.sendMessage(chatId, '❌ You are not the guild leader.');
         }
-        break;
-
-      case 'accept_guild_invite':
-      case 'decline_guild_invite':
-        const guildIdFromInvite = data.substring(data.lastIndexOf('_') + 1);
-        if (data.startsWith('accept_guild_invite')) {
-          await this._acceptGuildInvite(chatId, userId, guildIdFromInvite);
-        } else {
-          await this._declineGuildInvite(chatId, userId, guildIdFromInvite);
-        }
-        break;
+        return true;
       
       case 'guild_menu_show':
         if (guild) await this.showGuildMenu(chatId, userId, guild);
         else await this.showNoGuildMenu(chatId);
-        break;
+        return true;
 
       case 'guild_setting_description':
         this.playerStates.set(userId, 'awaiting_guild_description');
         await this.bot.sendMessage(chatId, '📝 Please type the new description for your guild.');
-        break;
+        return true;
 
       case 'guild_setting_public_join':
         if (guild && guild.leader === userId) {
@@ -211,12 +213,12 @@ What would you like to do?
         } else {
           await this.bot.sendMessage(chatId, '❌ You are not the guild leader.');
         }
-        break;
+        return true;
 
       case 'guild_setting_min_level':
         this.playerStates.set(userId, 'awaiting_guild_min_level');
         await this.bot.sendMessage(chatId, '⬆️ Please enter the new minimum level required to join your guild.');
-        break;
+        return true;
     }
   }
 
@@ -318,38 +320,22 @@ What would you like to do?
       await this.bot.sendMessage(chatId, guildList, { parse_mode: 'Markdown' });
   }
 
-  async _listGuilds(chatId) {
-      const guilds = Array.from(this.db.getAllGuilds().values());
-      if (guilds.length === 0) {
-        return this.bot.sendMessage(chatId, '📋 There are no guilds yet. Why not create one?');
-      }
-
-      let guildList = '📋 *List of All Guilds*\n\n';
-      for (const guild of guilds) {
-        const leader = this.gameEngine.getCharacter(guild.leader);
-        guildList += `🏛️ *${guild.name}* (Lvl. ${guild.level})\n`;
-        guildList += `  Leader: ${leader ? leader.name : '-'}\n`;
-        guildList += `  Members: ${guild.members.length}\n\n`;
-      }
-      await this.bot.sendMessage(chatId, guildList, { parse_mode: 'Markdown' });
-  }
-
   async _listInvitations(chatId, userId) {
     const invitations = this.db.getGuildInvitations(userId);
     if (invitations.length === 0) {
       return this.bot.sendMessage(chatId, '✉️ You have no pending guild invitations.');
     }
 
-    let inviteMessage = '✉️ *Your Guild Invitations*\n\n';
     for (const invite of invitations) {
       const guild = this.db.getGuild(invite.guildId);
       if (guild) {
         const inviter = this.gameEngine.getCharacter(invite.inviterId);
+        let inviteMessage = `✉️ *Your Guild Invitation*\n\n`;
         inviteMessage += `🏛️ *${guild.name}* from ${inviter ? inviter.name : 'Unknown'}\n`;
         inviteMessage += `  Level: ${guild.level}\n`;
         inviteMessage += `  Members: ${guild.members.length}\n`;
         inviteMessage += `  _Expires: ${new Date(invite.expiresAt).toLocaleString()}_\n`;
-        inviteMessage += `\n`;
+
         const keyboard = {
           inline_keyboard: [
             [{ text: '✅ Accept', callback_data: `accept_guild_invite_${invite.guildId}` }],
@@ -357,11 +343,7 @@ What would you like to do?
           ]
         };
         await this.bot.sendMessage(chatId, inviteMessage, { parse_mode: 'Markdown', reply_markup: keyboard });
-        inviteMessage = ''; // Clear for next invite
       }
-    }
-    if (inviteMessage) { // Send any remaining message if there was only one invite
-        await this.bot.sendMessage(chatId, inviteMessage, { parse_mode: 'Markdown' });
     }
   }
 
@@ -378,34 +360,6 @@ What would you like to do?
       const chatMessage = `[${guild.name}] ${character.name}: ${message}`;
       await this.notifyGuildMembers(guild, chatMessage, userId);
       await this.bot.sendMessage(msg.chat.id, "✅ Your message has been sent to the guild.");
-  }
-
-  async _inviteMember(msg, targetId) {
-      const userId = msg.from.id;
-      const character = this.gameEngine.getCharacter(userId);
-      const guild = character.guild ? this.db.getGuild(character.guild) : null;
-
-      if (!guild || guild.leader !== userId) {
-          return this.bot.sendMessage(msg.chat.id, "❌ You are not the guild leader.");
-      }
-
-      const targetCharacter = this.gameEngine.getCharacter(parseInt(targetId));
-      if (!targetCharacter) {
-          return this.bot.sendMessage(msg.chat.id, "❌ Target character not found.");
-      }
-      if (targetCharacter.guild) {
-          return this.bot.sendMessage(msg.chat.id, "❌ Target is already in a guild.");
-      }
-
-      const invitation = {
-          guildId: guild.id,
-          inviterId: userId,
-          expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
-      };
-      this.db.setGuildInvitation(targetCharacter.id, invitation);
-
-      await this.bot.sendMessage(msg.chat.id, `✅ Invitation sent to ${targetCharacter.name}.`);
-      await this.bot.sendMessage(targetCharacter.id, `✉️ You have received a guild invitation from *${guild.name}*! Use /guild to view it.`, { parse_mode: 'Markdown' });
   }
 
   async _acceptGuildInvite(chatId, userId, guildId) {
@@ -432,21 +386,6 @@ What would you like to do?
     await this.bot.sendMessage(chatId, `🎉 You have joined *${guild.name}*!`);
     await this.notifyGuildMembers(guild, `🎉 ${character.name} has joined the guild!`, userId);
     await this.showGuildMenu(chatId, userId, guild);
-  }
-
-  async _declineGuildInvite(chatId, userId, guildId) {
-    const character = this.gameEngine.getCharacter(userId);
-    const guild = this.db.getGuild(guildId);
-
-    if (!character || !guild) {
-      return this.bot.sendMessage(chatId, '❌ Guild or character not found.');
-    }
-
-    // Remove invitation
-    this.db.deleteGuildInvitation(userId, guildId);
-
-    await this.bot.sendMessage(chatId, `You have declined the invitation to *${guild.name}*.`);
-    await this.showNoGuildMenu(chatId);
   }
 
   async _declineGuildInvite(chatId, userId, guildId) {
@@ -512,66 +451,10 @@ What would you like to change?
           inviterId: userId,
           expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
       };
-      this.db.setGuildInvitation(targetCharacter.id, invitation);
+      this.db.setGuildInvitation(targetCharacter.id.toString(), invitation);
 
       await this.bot.sendMessage(msg.chat.id, `✅ Invitation sent to ${targetCharacter.name}.`);
       await this.bot.sendMessage(targetCharacter.id, `✉️ You have received a guild invitation from *${guild.name}*! Use /guild to view it.`, { parse_mode: 'Markdown' });
-  }
-
-  async _acceptGuildInvite(chatId, userId, guildId) {
-    const character = this.gameEngine.getCharacter(userId);
-    const guild = this.db.getGuild(guildId);
-
-    if (!character || !guild) {
-      return this.bot.sendMessage(chatId, '❌ Guild or character not found.');
-    }
-    if (character.guild) {
-      return this.bot.sendMessage(chatId, '❌ You are already in a guild. Leave it first to accept a new invitation.');
-    }
-
-    // Remove invitation
-    this.db.deleteGuildInvitation(userId, guildId);
-
-    // Add to guild
-    guild.members.push(userId);
-    character.guild = guildId;
-
-    this.db.setGuild(guild.id, guild);
-    this.gameEngine.updateCharacter(userId, character);
-
-    await this.bot.sendMessage(chatId, `🎉 You have joined *${guild.name}*!`);
-    await this.notifyGuildMembers(guild, `🎉 ${character.name} has joined the guild!`, userId);
-    await this.showGuildMenu(chatId, userId, guild);
-  }
-
-  async _declineGuildInvite(chatId, userId, guildId) {
-    const character = this.gameEngine.getCharacter(userId);
-    const guild = this.db.getGuild(guildId);
-
-    if (!character || !guild) {
-      return this.bot.sendMessage(chatId, '❌ Guild or character not found.');
-    }
-
-    // Remove invitation
-    this.db.deleteGuildInvitation(userId, guildId);
-
-    await this.bot.sendMessage(chatId, `You have declined the invitation to *${guild.name}*.`);
-    await this.showNoGuildMenu(chatId);
-  }
-
-  async _declineGuildInvite(chatId, userId, guildId) {
-    const character = this.gameEngine.getCharacter(userId);
-    const guild = this.db.getGuild(guildId);
-
-    if (!character || !guild) {
-      return this.bot.sendMessage(chatId, '❌ Guild or character not found.');
-    }
-
-    // Remove invitation
-    this.db.deleteGuildInvitation(userId, guildId);
-
-    await this.bot.sendMessage(chatId, `You have declined the invitation to *${guild.name}*.`);
-    await this.showNoGuildMenu(chatId);
   }
 
   async _disbandGuild(chatId, userId) {
