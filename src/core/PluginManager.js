@@ -65,6 +65,12 @@ class PluginManager {
         }
       }
       
+      // Bind handleCallback if it exists
+      if (plugin.handleCallback) {
+        console.log(`[PluginManager] Binding handleCallback for ${pluginName}`);
+        plugin.handleCallback = plugin.handleCallback.bind(plugin);
+      }
+
       // Register middlewares
       if (plugin.middleware) {
         this.middlewares.push(plugin.middleware.bind(plugin));
@@ -95,13 +101,13 @@ class PluginManager {
           if (handler) {
             await handler(msg);
           }
-        }
-
-        // Pass message to all plugins that have a message handler
-        for (const plugin of this.plugins.values()) {
-          if (plugin.handleMessage) {
-            await plugin.handleMessage(msg);
-          }
+        } else if (msg.text) {
+            // Handle non-command text messages
+            for (const plugin of this.plugins.values()) {
+                if (plugin.textHandler) {
+                    await plugin.textHandler(msg);
+                }
+            }
         }
       } catch (error) {
         console.error('Error handling message:', error);
@@ -112,7 +118,7 @@ class PluginManager {
     // Callback query handler
     this.bot.on('callback_query', async (callbackQuery) => {
       try {
-        console.log('Received callback query:', callbackQuery.data);
+        console.log('Received raw callback query:', callbackQuery.data);
         
         // Run middlewares for callback queries
         for (const middleware of this.middlewares) {
@@ -127,6 +133,7 @@ class PluginManager {
         // Handle callback queries in plugins
         for (const plugin of this.plugins.values()) {
           if (plugin.handleCallback) {
+            console.log(`Attempting to handle callback with plugin: ${plugin.constructor.name}`);
             try {
               const result = await plugin.handleCallback(callbackQuery);
               if (result) {
@@ -134,7 +141,7 @@ class PluginManager {
                 break;
               }
             } catch (error) {
-              console.error(`Error in plugin callback handler:`, error);
+              console.error(`Error in plugin callback handler (${plugin.constructor.name}):`, error);
             }
           }
         }

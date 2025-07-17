@@ -410,7 +410,7 @@ class ShopPlugin {
   }
 
   async handleCallback(callbackQuery) {
-    console.log(`[ShopPlugin] handleCallback: Received callbackQuery.data: ${callbackQuery.data}`);
+    // console.log(`[ShopPlugin] handleCallback: Received callbackQuery.data: ${callbackQuery.data}`);
     const userId = callbackQuery.from.id;
     const data = callbackQuery.data;
 
@@ -422,7 +422,7 @@ class ShopPlugin {
     }
 
     if (data.startsWith('shop_buy_')) {
-      console.log(`[ShopPlugin] handleCallback: shop_buy_ data: ${data}`);
+      // console.log(`[ShopPlugin] handleCallback: shop_buy_ data: ${data}`);
       const remainingString = data.replace('shop_buy_', '');
       let shopId = '';
       let itemId = '';
@@ -441,7 +441,7 @@ class ShopPlugin {
         await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Invalid callback data format or shop/item not found!' });
         return true;
       }
-      console.log(`[ShopPlugin] handleCallback: Extracted shopId: ${shopId}, itemId: ${itemId}`);
+      // console.log(`[ShopPlugin] handleCallback: Extracted shopId: ${shopId}, itemId: ${itemId}`);
       
       const item = this.db.getItem(itemId);
       if (!item) {
@@ -466,7 +466,7 @@ class ShopPlugin {
     }
 
     if (data.startsWith('shop_sell_')) {
-      console.log(`[ShopPlugin] handleCallback: shop_sell_ data: ${data}`);
+      // console.log(`[ShopPlugin] handleCallback: shop_sell_ data: ${data}`);
       const remainingString = data.replace('shop_sell_', '');
       let shopId = '';
       let itemId = '';
@@ -485,7 +485,7 @@ class ShopPlugin {
         await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Invalid callback data format or shop/item not found!' });
         return true;
       }
-      console.log(`[ShopPlugin] handleCallback: Extracted shopId: ${shopId}, itemId: ${itemId}`);
+      // console.log(`[ShopPlugin] handleCallback: Extracted shopId: ${shopId}, itemId: ${itemId}`);
 
       const item = this.db.getItem(itemId);
       if (!item) {
@@ -503,12 +503,12 @@ class ShopPlugin {
     }
     
     if (data.startsWith('shop_quantity_')) {
-      console.log(`[ShopPlugin] handleCallback: shop_quantity_ data: ${data}`);
+      // console.log(`[ShopPlugin] handleCallback: shop_quantity_ data: ${data}`);
       const parts = data.replace('shop_quantity_', '').split('_');
       const type = parts[0];
       const quantity = parseInt(parts[parts.length - 1]);
       const remainingString = parts.slice(1, parts.length - 1).join('_');
-      console.log(`[ShopPlugin] handleCallback (shop_quantity_): type: ${type}, quantity: ${quantity}, remainingString: ${remainingString}`);
+      // console.log(`[ShopPlugin] handleCallback (shop_quantity_): type: ${type}, quantity: ${quantity}, remainingString: ${remainingString}`);
 
       let shopId = '';
       let itemId = '';
@@ -522,15 +522,15 @@ class ShopPlugin {
           break;
         }
       }
-      console.log(`[ShopPlugin] handleCallback (shop_quantity_): Extracted shopId: ${shopId}, itemId: ${itemId}`);
+      // console.log(`[ShopPlugin] handleCallback (shop_quantity_): Extracted shopId: ${shopId}, itemId: ${itemId}`);
 
       if (!shopId || !itemId) {
-        console.log(`[ShopPlugin] handleCallback (shop_quantity_): Invalid shopId or itemId. Answering callback with error.`);
+        // console.log(`[ShopPlugin] handleCallback (shop_quantity_): Invalid shopId or itemId. Answering callback with error.`);
         await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Invalid callback data format or shop/item not found!' });
         return true;
       }
 
-      console.log(`[ShopPlugin] handleCallback (shop_quantity_): Processing quantity for type: ${type}, shopId: ${shopId}, itemId: ${itemId}, quantity: ${quantity}`);
+      // console.log(`[ShopPlugin] handleCallback (shop_quantity_): Processing quantity for type: ${type}, shopId: ${shopId}, itemId: ${itemId}, quantity: ${quantity}`);
       if (type === 'buy') {
         await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Processing purchase...' });
         await this.processBuy(callbackQuery.message.chat.id, userId, shopId, itemId, quantity);
@@ -542,7 +542,7 @@ class ShopPlugin {
     }
 
     if (data.startsWith('shop_cancel_')) {
-      console.log(`[ShopPlugin] handleCallback: shop_cancel_ data: ${data}`);
+      // console.log(`[ShopPlugin] handleCallback: shop_cancel_ data: ${data}`);
       const remainingString = data.replace('shop_cancel_', '');
       const firstUnderscoreIndex = remainingString.indexOf('_');
       if (firstUnderscoreIndex === -1) {
@@ -566,7 +566,7 @@ class ShopPlugin {
         return true;
       }
 
-      console.log(`[ShopPlugin] handleCallback (shop_cancel_): type: ${type}, shopId: ${shopId}`);
+      // console.log(`[ShopPlugin] handleCallback (shop_cancel_): type: ${type}, shopId: ${shopId}`);
 
       await this.bot.answerCallbackQuery(callbackQuery.id, {});
       if (type === 'buy') {

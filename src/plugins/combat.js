@@ -215,6 +215,7 @@ class CombatPlugin {
     const userId = callbackQuery.from.id;
     const data = callbackQuery.data;
     
+    console.log(`[CombatPlugin] Raw data received: ${data}`); // Added log
     console.log(`Combat plugin handling callback: ${data} for user ${userId}`);
 
     if (data.startsWith('start_combat_')) {
@@ -360,6 +361,7 @@ class CombatPlugin {
       return true;
     }
 
+    // If no specific callback was handled, return false
     return false;
   }
 }

@@ -4,20 +4,16 @@ class PartyPlugin {
     this.db = db;
     this.gameEngine = gameEngine;
     
+    this.playerStates = new Map(); // For multi-step actions
+
     this.commands = {
-      'party': this.handleParty,
-      'pcreate': this.handleCreateParty,
-      'pinvite': this.handleInviteParty,
-      'pjoin': this.handleJoinParty,
-      'pleave': this.handleLeaveParty,
-      'pkick': this.handleKickParty,
-      'pmembers': this.handlePartyMembers,
-      'pchat': this.handlePartyChat,
-      'pshare': this.handlePartyShare
+      'party': this.handleParty.bind(this)
     };
     
-    this.parties = new Map();
+    this.parties = this.db.getAllParties(); // Load parties from DB
     this.invitations = new Map();
+
+    this.textHandler = this.handleTextMessage.bind(this);
   }
 
   async init() {
@@ -28,60 +24,271 @@ class PartyPlugin {
     const userId = msg.from.id;
     const character = this.gameEngine.getCharacter(userId);
     
-    if (!character) return;
+    if (!character) {
+        await this.bot.sendMessage(msg.chat.id, "❌ You don't have a character!");
+        return;
+    }
 
     const party = this.getPlayerParty(userId);
     
     if (party) {
-      await this.showPartyInfo(msg.chat.id, party);
+      await this._showPartyMenu(msg.chat.id, userId, party);
     } else {
-      const keyboard = {
-        inline_keyboard: [
-          [
-            { text: '👥 Create Party', callback_data: 'create_party' },
-            { text: '📋 Party List', callback_data: 'party_list' }
-          ]
-        ]
-      };
-
-      await this.bot.sendMessage(msg.chat.id,
-        `👥 *Party System*\n\n` +
-        `You're not in a party yet!\n\n` +
-        `🎯 *Benefits of parties:*\n` +
-        `• Shared EXP and drops\n` +
-        `• Access to dungeons\n` +
-        `• Group combat bonuses\n` +
-        `• Party chat and coordination\n\n` +
-        `What would you like to do?`,
-        { parse_mode: 'Markdown', reply_markup: keyboard }
-      );
+      await this._showNoPartyMenu(msg.chat.id);
     }
   }
 
-  async handleCreateParty(msg) {
+  async _showNoPartyMenu(chatId) {
+    const keyboard = {
+      inline_keyboard: [
+        [
+          { text: '➕ Create Party', callback_data: 'party_create_prompt' },
+          { text: '✉️ View Invitations', callback_data: 'party_invites_view' }
+        ],
+        [
+          { text: '📋 Browse Parties', callback_data: 'party_list_browse' }
+        ]
+      ]
+    };
+
+    const message = `
+👥 *Party System*
+
+You are not currently in a party. Parties allow you to:
+
+- Share EXP and loot with teammates.
+- Tackle challenging dungeons together.
+- Communicate privately with party chat.
+
+What would you like to do?
+    `;
+
+    await this.bot.sendMessage(chatId, message, { parse_mode: 'Markdown', reply_markup: keyboard });
+  }
+
+  async _showPartyMenu(chatId, userId, party) {
+    const isLeader = party.leader === userId;
+    const leaderChar = this.gameEngine.getCharacter(party.leader);
+    const leaderName = leaderChar ? leaderChar.name : 'Unknown';
+
+    let keyboard = [
+      [{ text: '👥 View Members', callback_data: 'party_members_view' }],
+      [{ text: '💬 Send Party Chat', callback_data: 'party_chat_prompt' }],
+      isLeader ? { text: '➕ Invite Member', callback_data: 'party_invite_prompt' } : null,
+      isLeader ? { text: '⚙️ Settings', callback_data: 'party_settings_menu' } : null,
+      isLeader ? { text: '❌ Disband Party', callback_data: 'party_disband_confirm' } : { text: '👋 Leave Party', callback_data: 'party_leave_confirm' }
+    ].filter(Boolean).map(btn => Array.isArray(btn) ? btn : [btn]);
+
+    const message = `
+👥 *Party: ${party.name}*
+
+👑 *Leader:* ${leaderName}
+📊 *Members:* ${party.members.length}/${party.settings.maxMembers}
+
+> ${party.description || 'A group ready for adventure!'}
+    `;
+
+    await this.bot.sendMessage(chatId, message, {
+      parse_mode: 'Markdown',
+      reply_markup: { inline_keyboard: keyboard }
+    });
+  }
+
+  async handleTextMessage(msg) {
+    const userId = msg.from.id;
+    const state = this.playerStates.get(userId);
+
+    if (!state) return; // Not waiting for any input
+
+    this.playerStates.delete(userId); // Consume the state
+
+    if (state === 'awaiting_party_name') {
+      await this._createParty(msg, msg.text);
+    } else if (state === 'awaiting_invitee_id') {
+      await this._inviteMember(msg, msg.text);
+    } else if (state === 'awaiting_chat_message') {
+      await this._sendPartyChat(msg, msg.text);
+    } else if (state === 'awaiting_party_description') {
+      await this._setPartyDescription(msg, msg.text);
+    } else if (state === 'awaiting_party_max_members') {
+      await this._setPartyMaxMembers(msg, msg.text);
+    }
+  }
+
+  async handleCallback(callbackQuery) {
+    try {
+      const userId = callbackQuery.from.id;
+      const chatId = callbackQuery.message.chat.id;
+      const data = callbackQuery.data;
+
+      console.log(`[PartyPlugin] Received callback: ${data}`);
+      console.log(`[PartyPlugin] Type of data: ${typeof data}`);
+      console.log(`[PartyPlugin] data === 'party_create_prompt': ${data === 'party_create_prompt'}`);
+
+      await this.bot.answerCallbackQuery(callbackQuery.id);
+
+      const character = this.gameEngine.getCharacter(userId);
+      if (!character) {
+          await this.bot.sendMessage(chatId, "❌ You need a character to interact with parties.");
+          return true; // Return true here as well, since we handled the error
+      }
+      const party = this.getPlayerParty(userId);
+
+      // Handle dynamic callbacks first
+      if (data.startsWith('party_accept_invite_')) {
+        console.log(`[PartyPlugin] Matched party_accept_invite_ for ${data}`);
+        const inviteId = data.replace('party_accept_invite_', '');
+        await this._acceptPartyInvite(chatId, userId, inviteId);
+        return true;
+      } else if (data.startsWith('party_decline_invite_')) {
+        console.log(`[PartyPlugin] Matched party_decline_invite_ for ${data}`);
+        const inviteId = data.replace('party_decline_invite_', '');
+        await this._declinePartyInvite(chatId, userId, inviteId);
+        return true;
+      }
+
+      console.log(`[PartyPlugin] Attempting to match static callback: ${data}`);
+
+      switch (data) {
+        case 'party_create_prompt':
+          console.log(`[PartyPlugin] Entered case: party_create_prompt for user ${userId}`);
+          this.playerStates.set(userId, 'awaiting_party_name');
+          await this.bot.sendMessage(chatId, '📝 Please type the desired name for your new party.');
+          return true;
+
+        case 'party_list_browse':
+          console.log(`[PartyPlugin] Entered case: party_list_browse for user ${userId}`);
+          await this._listParties(chatId);
+          return true;
+
+        case 'party_invites_view':
+          console.log(`[PartyPlugin] Entered case: party_invites_view for user ${userId}`);
+          await this._listInvitations(chatId, userId);
+          return true;
+
+        case 'party_members_view':
+          console.log(`[PartyPlugin] Entered case: party_members_view for user ${userId}`);
+          if (party) await this._listMembers(chatId, party);
+          return true;
+        
+        case 'party_chat_prompt':
+          console.log(`[PartyPlugin] Entered case: party_chat_prompt for user ${userId}`);
+          this.playerStates.set(userId, 'awaiting_chat_message');
+          await this.bot.sendMessage(chatId, '💬 Type the message you want to send to your party.');
+          return true;
+
+        case 'party_invite_prompt':
+          console.log(`[PartyPlugin] Entered case: party_invite_prompt for user ${userId}`);
+          this.playerStates.set(userId, 'awaiting_invitee_id');
+          await this.bot.sendMessage(chatId, '👤 Please enter the Character ID of the player you want to invite.');
+          return true;
+
+        case 'party_leave_confirm':
+          console.log(`[PartyPlugin] Entered case: party_leave_confirm for user ${userId}`);
+          await this.bot.sendMessage(chatId, 'Are you sure you want to leave the party?', {
+            reply_markup: { inline_keyboard: [[{ text: '✅ Yes, I want to leave', callback_data: 'party_leave_execute' }, { text: '❌ Cancel', callback_data: 'party_menu_show' }]] }
+          });
+          return true;
+
+        case 'party_leave_execute':
+          console.log(`[PartyPlugin] Entered case: party_leave_execute for user ${userId}`);
+          await this._leaveParty(chatId, userId);
+          return true;
+        
+        case 'party_disband_confirm':
+          console.log(`[PartyPlugin] Entered case: party_disband_confirm for user ${userId}`);
+          await this.bot.sendMessage(chatId, 'Are you absolutely sure you want to disband your party? This action cannot be undone.', {
+            reply_markup: { inline_keyboard: [[{ text: '✅ Yes, Disband Party', callback_data: 'party_disband_execute' }, { text: '❌ Cancel', callback_data: 'party_menu_show' }]] }
+          });
+          return true;
+
+        case 'party_disband_execute':
+          console.log(`[PartyPlugin] Entered case: party_disband_execute for user ${userId}`);
+          await this._disbandParty(chatId, userId);
+          return true;
+
+        case 'party_settings_menu':
+          console.log(`[PartyPlugin] Entered case: party_settings_menu for user ${userId}`);
+          if (party && party.leader === userId) {
+            await this._showPartySettingsMenu(chatId, party);
+          } else {
+            await this.bot.sendMessage(chatId, '❌ You are not the party leader.');
+          }
+          return true;
+
+        case 'party_setting_description':
+          console.log(`[PartyPlugin] Entered case: party_setting_description for user ${userId}`);
+          this.playerStates.set(userId, 'awaiting_party_description');
+          await this.bot.sendMessage(chatId, '📝 Please type the new description for your party.');
+          return true;
+
+        case 'party_setting_exp_share':
+          console.log(`[PartyPlugin] Entered case: party_setting_exp_share for user ${userId}`);
+          if (party && party.leader === userId) {
+            party.settings.expShare = !party.settings.expShare;
+            this.parties.set(party.id, party);
+            await this.bot.sendMessage(chatId, `📈 EXP Share is now ${party.settings.expShare ? 'Enabled' : 'Disabled'}.`);
+            await this._showPartySettingsMenu(chatId, party);
+          } else {
+            await this.bot.sendMessage(chatId, '❌ You are not the party leader.');
+          }
+          return true;
+
+        case 'party_setting_item_share':
+          console.log(`[PartyPlugin] Entered case: party_setting_item_share for user ${userId}`);
+          if (party && party.leader === userId) {
+            party.settings.itemShare = !party.settings.itemShare;
+            this.parties.set(party.id, party);
+            await this.bot.sendMessage(chatId, `🎁 Item Share is now ${party.settings.itemShare ? 'Enabled' : 'Disabled'}.`);
+            await this._showPartySettingsMenu(chatId, party);
+          } else {
+            await this.bot.sendMessage(chatId, '❌ You are not the party leader.');
+          }
+          return true;
+
+        case 'party_setting_max_members':
+          console.log(`[PartyPlugin] Entered case: party_setting_max_members for user ${userId}`);
+          this.playerStates.set(userId, 'awaiting_party_max_members');
+          await this.bot.sendMessage(chatId, '👥 Please enter the new maximum number of members for your party (2-6).');
+          return true;
+
+        case 'party_menu_show':
+          console.log(`[PartyPlugin] Entered case: party_menu_show for user ${userId}`);
+          if (party) await this._showPartyMenu(chatId, userId, party);
+          else await this._showNoPartyMenu(chatId);
+          return true;
+
+        default:
+          console.log(`[PartyPlugin] No case matched for callback: ${data}`);
+          return false;
+      }
+    } catch (error) {
+      console.error(`[PartyPlugin] Error in handleCallback: ${error.message}`);
+      return false; // Indicate that the callback was NOT handled due to an error
+    }
+  }
+
+  async _createParty(msg, partyName) {
     const userId = msg.from.id;
     const character = this.gameEngine.getCharacter(userId);
     
-    if (!character) return;
-
     if (this.getPlayerParty(userId)) {
-      await this.bot.sendMessage(msg.chat.id,
-        `❌ You're already in a party! Leave your current party first.`
-      );
-      return;
+      return this.bot.sendMessage(msg.chat.id, '❌ You are already in a party!');
     }
-
-    const args = msg.text.split(' ').slice(1);
-    const partyName = args.length > 0 ? args.join(' ') : `${character.name}'s Party`;
+    if (partyName.length < 3 || partyName.length > 30) {
+      return this.bot.sendMessage(msg.chat.id, '❌ Party name must be 3-30 characters long.');
+    }
 
     const { randomUUID } = require('crypto');
     const partyId = `party_${randomUUID().slice(0, 8)}`;
-    const party = {
+    
+    const newParty = {
       id: partyId,
       name: partyName,
       leader: userId,
       members: [userId],
       created: Date.now(),
+      description: `${partyName} - A new party ready for adventure!`,
       settings: {
         expShare: true,
         itemShare: false,
@@ -94,212 +301,348 @@ class PartyPlugin {
       }
     };
 
-    this.parties.set(partyId, party);
+    this.parties.set(partyId, newParty);
+    this.db.setParty(partyId, newParty); // Save to DB
     
-    await this.bot.sendMessage(msg.chat.id,
-      `🎉 *Party Created Successfully!*\n\n` +
-      `👥 Party Name: ${partyName}\n` +
-      `👑 Leader: ${character.name}\n` +
-      `📊 Members: 1/${party.settings.maxMembers}\n\n` +
-      `Use /pinvite <player_name> to invite players!`,
-      { parse_mode: 'Markdown' }
-    );
+    await this.bot.sendMessage(msg.chat.id, `🎉 Party *${partyName}* has been created!`);
+    await this._showPartyMenu(msg.chat.id, userId, newParty);
   }
 
-  async handleInviteParty(msg) {
+  async _inviteMember(msg, targetIdentifier) {
     const userId = msg.from.id;
     const character = this.gameEngine.getCharacter(userId);
-    
-    if (!character) return;
-
     const party = this.getPlayerParty(userId);
-    if (!party) {
-      await this.bot.sendMessage(msg.chat.id,
-        `❌ You're not in a party! Create one first.`
-      );
-      return;
+
+    if (!party || party.leader !== userId) {
+      return this.bot.sendMessage(msg.chat.id, '❌ You are not the party leader.');
     }
 
-    if (party.leader !== userId) {
-      await this.bot.sendMessage(msg.chat.id,
-        `❌ Only the party leader can invite members!`
-      );
-      return;
+    let targetCharacter = null;
+    let targetId = null;
+
+    // Check if targetIdentifier is a number or a string (name)
+    if (!isNaN(parseInt(targetIdentifier))) {
+        targetId = parseInt(targetIdentifier);
+        targetCharacter = this.gameEngine.getCharacter(targetId);
+    } else {
+        targetId = this.findPlayerByName(targetIdentifier);
+        if (targetId) {
+            targetCharacter = this.gameEngine.getCharacter(targetId);
+        }
     }
 
-    const args = msg.text.split(' ').slice(1);
-    if (args.length < 1) {
-      await this.bot.sendMessage(msg.chat.id,
-        `❌ Please specify a player name!\n\n` +
-        `Usage: /pinvite <player_name>\n` +
-        `Example: /pinvite PlayerName`
-      );
-      return;
+    if (!targetCharacter) {
+      return this.bot.sendMessage(msg.chat.id, `❌ Character "${targetIdentifier}" not found.`);
     }
 
-    const targetName = args.join(' ');
-    const targetUserId = this.findPlayerByName(targetName);
-    
-    if (!targetUserId) {
-      await this.bot.sendMessage(msg.chat.id,
-        `❌ Player "${targetName}" not found!`
-      );
-      return;
-    }
-
-    if (party.members.includes(targetUserId)) {
-      await this.bot.sendMessage(msg.chat.id,
-        `❌ ${targetName} is already in your party!`
-      );
-      return;
+    if (this.getPlayerParty(targetCharacter.id)) {
+      return this.bot.sendMessage(msg.chat.id, '❌ Target is already in a party.');
     }
 
     if (party.members.length >= party.settings.maxMembers) {
-      await this.bot.sendMessage(msg.chat.id,
-        `❌ Party is full! (${party.members.length}/${party.settings.maxMembers})`
-      );
-      return;
+      return this.bot.sendMessage(msg.chat.id, '❌ Party is full!');
     }
 
-    // Send invitation
-    const inviteId = `invite_${Date.now()}`;
+    const { randomUUID } = require('crypto');
+    const inviteId = `party_invite_${randomUUID().slice(0, 8)}_${userId}_${targetCharacter.id}`;
     this.invitations.set(inviteId, {
       partyId: party.id,
-      inviter: userId,
-      target: targetUserId,
-      expires: Date.now() + 300000 // 5 minutes
+      inviterId: userId,
+      targetId: targetCharacter.id.toString(),
+      expiresAt: Date.now() + (5 * 60 * 1000) // 5 minutes
     });
 
     const keyboard = {
       inline_keyboard: [
         [
-          { text: '✅ Accept', callback_data: `party_accept_${inviteId}` },
-          { text: '❌ Decline', callback_data: `party_decline_${inviteId}` }
+          { text: '✅ Accept', callback_data: `party_accept_invite_${inviteId}` },
+          { text: '❌ Decline', callback_data: `party_decline_invite_${inviteId}` }
         ]
       ]
     };
 
     try {
-      await this.bot.sendMessage(targetUserId,
-        `👥 *Party Invitation*\n\n` +
-        `${character.name} has invited you to join "${party.name}"!\n\n` +
-        `👑 Leader: ${character.name}\n` +
-        `📊 Members: ${party.members.length}/${party.settings.maxMembers}\n\n` +
+      await this.bot.sendMessage(targetCharacter.id.toString(),
+        `👥 *Party Invitation*
+
+` +
+        `${character.name} has invited you to join "${party.name}"!
+
+` +
+        `👑 Leader: ${character.name}
+` +
+        `📊 Members: ${party.members.length}/${party.settings.maxMembers}
+
+` +
         `Do you want to join?`,
         { parse_mode: 'Markdown', reply_markup: keyboard }
       );
 
-      await this.bot.sendMessage(msg.chat.id,
-        `✅ Invitation sent to ${targetName}!`
-      );
+      await this.bot.sendMessage(msg.chat.id, `✅ Invitation sent to ${targetCharacter.name}!`);
     } catch (error) {
-      await this.bot.sendMessage(msg.chat.id,
-        `❌ Could not send invitation to ${targetName}. They may have blocked the bot.`
-      );
+      console.error(`[PartyPlugin] Failed to send invite to ${targetCharacter.id}:`, error);
+      await this.bot.sendMessage(msg.chat.id, `❌ Could not send invitation to ${targetCharacter.name}. They may have blocked the bot or the ID is invalid.`);
     }
   }
 
-  async handleLeaveParty(msg) {
-    const userId = msg.from.id;
+  async _leaveParty(chatId, userId) {
     const character = this.gameEngine.getCharacter(userId);
-    
-    if (!character) return;
-
     const party = this.getPlayerParty(userId);
+
     if (!party) {
-      await this.bot.sendMessage(msg.chat.id,
-        `❌ You're not in a party!`
-      );
-      return;
+      return this.bot.sendMessage(chatId, '❌ You are not in a party.');
     }
 
     if (party.leader === userId) {
       if (party.members.length > 1) {
         // Transfer leadership to next member
-        const newLeader = party.members.find(id => id !== userId);
-        party.leader = newLeader;
+        const newLeaderId = party.members.find(id => id !== userId);
+        party.leader = newLeaderId;
         
-        const newLeaderChar = this.gameEngine.getCharacter(newLeader);
+        const newLeaderChar = this.gameEngine.getCharacter(newLeaderId);
         await this.notifyPartyMembers(party, 
           `👑 ${newLeaderChar.name} is now the party leader!`
         );
       } else {
         // Disband party if leader is the only member
         this.parties.delete(party.id);
-        await this.bot.sendMessage(msg.chat.id,
-          `✅ Party disbanded!`
-        );
+        this.db.deleteParty(party.id); // Delete from DB
+        await this.bot.sendMessage(chatId, `✅ Party *${party.name}* disbanded!`);
+        await this._showNoPartyMenu(chatId);
         return;
       }
     }
 
     // Remove from party
     party.members = party.members.filter(id => id !== userId);
+    this.db.setParty(party.id, party); // Save updated party to DB
     
-    await this.bot.sendMessage(msg.chat.id,
-      `✅ You left the party "${party.name}".`
-    );
-
-    await this.notifyPartyMembers(party, 
-      `👋 ${character.name} has left the party.`
-    );
+    await this.bot.sendMessage(chatId, `✅ You left the party *${party.name}*.`);
+    await this.notifyPartyMembers(party, `👋 ${character.name} has left the party.`);
+    await this._showNoPartyMenu(chatId);
   }
 
-  async handlePartyMembers(msg) {
-    const userId = msg.from.id;
-    const party = this.getPlayerParty(userId);
-    
-    if (!party) {
-      await this.bot.sendMessage(msg.chat.id,
-        `❌ You're not in a party!`
-      );
-      return;
-    }
-
+  async _listMembers(chatId, party) {
     let membersText = `👥 *${party.name} Members*\n\n`;
     
     for (const memberId of party.members) {
       const memberChar = this.gameEngine.getCharacter(memberId);
       if (memberChar) {
-        const role = memberId === party.leader ? '👑 Leader' : '👤 Member';
+        const role = memberId === party.leader ? '👑' : '👤';
         const location = memberChar.position.map;
-        membersText += `${role} ${memberChar.name} (Level ${memberChar.level})\n`;
+        membersText += `${role} ${memberChar.name} - Lvl. ${memberChar.level}\n`;
         membersText += `   📍 Location: ${location}\n`;
         membersText += `   ❤️ HP: ${memberChar.stats.hp}/${memberChar.stats.maxHp}\n\n`;
       }
     }
 
-    await this.bot.sendMessage(msg.chat.id, membersText, { parse_mode: 'Markdown' });
+    await this.bot.sendMessage(chatId, membersText, { parse_mode: 'Markdown' });
   }
 
-  async handlePartyChat(msg) {
+  async _sendPartyChat(msg, message) {
     const userId = msg.from.id;
     const character = this.gameEngine.getCharacter(userId);
-    
-    if (!character) return;
-
     const party = this.getPlayerParty(userId);
+
     if (!party) {
-      await this.bot.sendMessage(msg.chat.id,
-        `❌ You're not in a party!`
-      );
-      return;
+      return this.bot.sendMessage(msg.chat.id, "❌ You're not in a party!");
     }
+    if (!message) return;
 
-    const args = msg.text.split(' ').slice(1);
-    if (args.length < 1) {
-      await this.bot.sendMessage(msg.chat.id,
-        `❌ Please provide a message!\n\n` +
-        `Usage: /pchat <message>\n` +
-        `Example: /pchat Let's go to the dungeon!`
-      );
-      return;
-    }
-
-    const message = args.join(' ');
-    const partyMessage = `👥 *Party Chat*\n👤 ${character.name}: ${message}`;
+    const partyMessage = "👥 *Party Chat*\n👤 " + character.name + ": " + message;
     
-    await this.notifyPartyMembers(party, partyMessage);
+    await this.notifyPartyMembers(party, partyMessage, userId);
+    await this.bot.sendMessage(msg.chat.id, "✅ Your message has been sent to the party.");
+  }
+
+  async _listParties(chatId) {
+    const parties = Array.from(this.parties.values());
+    if (parties.length === 0) {
+      return this.bot.sendMessage(chatId, '📋 No parties found. Be the first to create one!');
+    }
+
+    let partyList = '📋 *Active Parties*\n\n';
+    for (const party of parties) {
+      const leader = this.gameEngine.getCharacter(party.leader);
+      partyList += `👥 *${party.name}* (Leader: ${leader ? leader.name : '-'})\n`;
+      partyList += `  Members: ${party.members.length}/${party.settings.maxMembers}\n`;
+      partyList += `  EXP Share: ${party.settings.expShare ? '✅' : '❌'}\n`;
+      partyList += `  Item Share: ${party.settings.itemShare ? '✅' : '❌'}\n\n`;
+    }
+    await this.bot.sendMessage(chatId, partyList, { parse_mode: 'Markdown' });
+  }
+
+  async _listInvitations(chatId, userId) {
+    const invitations = Array.from(this.invitations.values()).filter(invite => invite.targetId === userId && invite.expiresAt > Date.now());
+    if (invitations.length === 0) {
+      return this.bot.sendMessage(chatId, '✉️ You have no pending party invitations.');
+    }
+
+    let inviteMessage = '✉️ *Your Party Invitations*\n\n';
+    for (const invite of invitations) {
+      const party = this.parties.get(invite.partyId);
+      if (party) {
+        const inviter = this.gameEngine.getCharacter(invite.inviterId);
+        inviteMessage += `👥 *${party.name}* from ${inviter ? inviter.name : 'Unknown'}\n`;
+        inviteMessage += `  Members: ${party.members.length}/${party.settings.maxMembers}\n`;
+        inviteMessage += `  _Expires: ${new Date(invite.expiresAt).toLocaleString()}_\n`;
+        inviteMessage += `\n`;
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: '✅ Accept', callback_data: `party_accept_invite_${invite.id}` }],
+            [{ text: '❌ Decline', callback_data: `party_decline_invite_${invite.id}` }]
+          ]
+        };
+        await this.bot.sendMessage(chatId, inviteMessage, { parse_mode: 'Markdown', reply_markup: keyboard });
+        inviteMessage = ''; // Clear for next invite
+      }
+    }
+    if (inviteMessage) { // Send any remaining message if there was only one invite
+        await this.bot.sendMessage(chatId, inviteMessage, { parse_mode: 'Markdown' });
+    }
+  }
+
+  async _acceptPartyInvite(chatId, userId, inviteId) {
+    const userIdStr = userId.toString(); // Convert userId to string for consistent comparison
+    console.log(`[PartyPlugin] _acceptPartyInvite called for userId: ${userIdStr}, inviteId: ${inviteId}`);
+    const invitation = this.invitations.get(inviteId);
+    console.log(`[PartyPlugin] Invitation found: ${JSON.stringify(invitation)}`);
+    if (!invitation) {
+      console.log('[PartyPlugin] Invitation not found.');
+      return this.bot.sendMessage(chatId, '❌ Invitation expired or invalid.');
+    }
+    if (invitation.expiresAt < Date.now()) {
+      console.log('[PartyPlugin] Invitation expired.');
+      return this.bot.sendMessage(chatId, '❌ Invitation expired or invalid.');
+    }
+    if (invitation.targetId !== userIdStr) {
+      console.log(`[PartyPlugin] Invitation targetId (${invitation.targetId}) does not match userId (${userIdStr}).`);
+      return this.bot.sendMessage(chatId, '❌ Invitation expired or invalid.');
+    }
+
+    const party = this.parties.get(invitation.partyId);
+    console.log(`[PartyPlugin] Party found: ${JSON.stringify(party)}`);
+    if (!party) {
+      console.log('[PartyPlugin] Party no longer exists.');
+      return this.bot.sendMessage(chatId, '❌ Party no longer exists!');
+    }
+    if (this.getPlayerParty(userIdStr)) {
+      console.log('[PartyPlugin] User already in a party.');
+      return this.bot.sendMessage(chatId, '❌ You are already in a party. Leave it first to accept a new invitation.');
+    }
+    if (party.members.length >= party.settings.maxMembers) {
+      console.log('[PartyPlugin] Party is full.');
+      return this.bot.sendMessage(chatId, '❌ Party is full!');
+    }
+
+    // Add to party
+    party.members.push(userIdStr);
+    this.invitations.delete(inviteId);
+    this.db.setParty(party.id, party); // Save updated party to DB
+
+    const character = this.gameEngine.getCharacter(userIdStr);
+    await this.bot.sendMessage(chatId, `🎉 You have joined *${party.name}*!`);
+    await this.notifyPartyMembers(party, `🎉 ${character.name} has joined the party!`, userIdStr);
+    await this._showPartyMenu(chatId, userIdStr, party);
+  }
+
+  async _declinePartyInvite(chatId, userId, inviteId) {
+    const invitation = this.invitations.get(inviteId);
+    if (!invitation || invitation.expiresAt < Date.now() || invitation.targetId !== userId) {
+      return this.bot.sendMessage(chatId, '❌ Invitation expired or invalid.');
+    }
+
+    const party = this.parties.get(invitation.partyId);
+    if (!party) {
+      return this.bot.sendMessage(chatId, '❌ Party no longer exists!');
+    }
+
+    this.invitations.delete(inviteId);
+    await this.bot.sendMessage(chatId, `You have declined the invitation to *${party.name}*.`);
+    await this._showNoPartyMenu(chatId);
+  }
+
+  async _disbandParty(chatId, userId) {
+    const party = this.getPlayerParty(userId);
+    if (!party || party.leader !== userId) {
+      return this.bot.sendMessage(chatId, '❌ You are not the party leader or not in a party.');
+    }
+
+    // Remove party from all members
+    for (const memberId of party.members) {
+      // In a real scenario, you might clear their party reference in their character object
+      // For this example, we just remove the party itself.
+    }
+
+    this.parties.delete(party.id);
+    this.db.deleteParty(party.id); // Delete from DB
+    await this.notifyPartyMembers(party, `💥 Your party *${party.name}* has been disbanded by the leader.`, userId);
+    await this._showNoPartyMenu(chatId);
+  }
+
+  async _showPartySettingsMenu(chatId, party) {
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: '📝 Change Description', callback_data: 'party_setting_description' }],
+        [{ text: `📈 EXP Share: ${party.settings.expShare ? '✅ Enabled' : '❌ Disabled'}`, callback_data: 'party_setting_exp_share' }],
+        [{ text: `🎁 Item Share: ${party.settings.itemShare ? '✅ Enabled' : '❌ Disabled'}`, callback_data: 'party_setting_item_share' }],
+        [{ text: '👥 Set Max Members', callback_data: 'party_setting_max_members' }],
+        [{ text: '🔙 Back to Party Menu', callback_data: 'party_menu_show' }]
+      ]
+    };
+
+    const message = `\n⚙️ *${party.name} - Party Settings*\n\n*Current Settings:*\nDescription: ${party.description}\nEXP Share: ${party.settings.expShare ? 'Enabled' : 'Disabled'}\nItem Share: ${party.settings.itemShare ? 'Enabled' : 'Disabled'}\nMax Members: ${party.settings.maxMembers}\n\nWhat would you like to change?\n    `;
+
+    await this.bot.sendMessage(chatId, message, { parse_mode: 'Markdown', reply_markup: keyboard });
+  }
+
+  async _setPartyDescription(msg, description) {
+    const userId = msg.from.id;
+    const party = this.getPlayerParty(userId);
+
+    if (!party || party.leader !== userId) {
+      return this.bot.sendMessage(msg.chat.id, '❌ You are not the party leader.');
+    }
+
+    party.description = description;
+    this.parties.set(party.id, party);
+    this.db.setParty(party.id, party); // Save to DB
+    await this.bot.sendMessage(msg.chat.id, '✅ Party description updated!');
+    await this._showPartySettingsMenu(msg.chat.id, party);
+  }
+
+  async _setPartyMaxMembers(msg, maxMembers) {
+    const userId = msg.from.id;
+    const party = this.getPlayerParty(userId);
+
+    if (!party || party.leader !== userId) {
+      return this.bot.sendMessage(msg.chat.id, '❌ You are not the party leader.');
+    }
+
+    const newMax = parseInt(maxMembers);
+    if (isNaN(newMax) || newMax < 2 || newMax > 6) {
+      return this.bot.sendMessage(msg.chat.id, '❌ Invalid number. Max members must be between 2 and 6.');
+    }
+    if (newMax < party.members.length) {
+      return this.bot.sendMessage(msg.chat.id, `❌ Cannot set max members to ${newMax}. You have ${party.members.length} members currently.`);
+    }
+
+    party.settings.maxMembers = newMax;
+    this.parties.set(party.id, party);
+    this.db.setParty(party.id, party); // Save to DB
+    await this.bot.sendMessage(msg.chat.id, `✅ Max members set to ${newMax}.`);
+    await this._showPartySettingsMenu(msg.chat.id, party);
+  }
+
+  async notifyPartyMembers(party, message, excludeId = null) {
+    for (const memberId of party.members) {
+      if (memberId === excludeId) continue;
+      try {
+        await this.bot.sendMessage(memberId.toString(), message, { parse_mode: 'Markdown' });
+      } catch (error) {
+        console.log(`Failed to send message to party member ${memberId}: ${error.message}`);
+      }
+    }
   }
 
   getPlayerParty(userId) {
@@ -354,91 +697,7 @@ class PartyPlugin {
     );
   }
 
-  async notifyPartyMembers(party, message) {
-    for (const memberId of party.members) {
-      try {
-        await this.bot.sendMessage(memberId, message, { parse_mode: 'Markdown' });
-      } catch (error) {
-        console.log(`Failed to send message to party member ${memberId}`);
-      }
-    }
-  }
-
-  async handleCallback(callbackQuery) {
-    const userId = callbackQuery.from.id;
-    const data = callbackQuery.data;
-
-    if (data === 'create_party') {
-      await this.bot.answerCallbackQuery(callbackQuery.id);
-      await this.bot.sendMessage(callbackQuery.message.chat.id,
-        `👥 *Create Party*\n\n` +
-        `To create a party, use the command:\n` +
-        `/pcreate [party_name]\n\n` +
-        `Example: /pcreate Adventure Squad\n\n` +
-        `If no name is provided, it will use your character name.`,
-        { parse_mode: 'Markdown' }
-      );
-      return true;
-    }
-
-    if (data.startsWith('party_accept_')) {
-      const inviteId = data.replace('party_accept_', '');
-      const invitation = this.invitations.get(inviteId);
-      
-      if (!invitation || invitation.expires < Date.now()) {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'Invitation expired!');
-        return true;
-      }
-
-      const party = this.parties.get(invitation.partyId);
-      if (!party) {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'Party no longer exists!');
-        return true;
-      }
-
-      if (party.members.length >= party.settings.maxMembers) {
-        await this.bot.answerCallbackQuery(callbackQuery.id, 'Party is full!');
-        return true;
-      }
-
-      // Add to party
-      party.members.push(userId);
-      this.invitations.delete(inviteId);
-
-      const character = this.gameEngine.getCharacter(userId);
-      await this.bot.answerCallbackQuery(callbackQuery.id, 'Joined party!');
-      
-      await this.notifyPartyMembers(party, 
-        `🎉 ${character.name} has joined the party!`
-      );
-      return true;
-    }
-
-    if (data.startsWith('party_decline_')) {
-      const inviteId = data.replace('party_decline_', '');
-      this.invitations.delete(inviteId);
-      
-      await this.bot.answerCallbackQuery(callbackQuery.id, 'Invitation declined');
-      await this.bot.sendMessage(callbackQuery.message.chat.id,
-        `❌ You declined the party invitation.`
-      );
-      return true;
-    }
-
-    if (data === 'party_members') {
-      await this.bot.answerCallbackQuery(callbackQuery.id);
-      await this.handlePartyMembers({ chat: callbackQuery.message.chat, from: callbackQuery.from });
-      return true;
-    }
-
-    if (data === 'leave_party') {
-      await this.bot.answerCallbackQuery(callbackQuery.id);
-      await this.handleLeaveParty({ chat: callbackQuery.message.chat, from: callbackQuery.from });
-      return true;
-    }
-
-    return false;
-  }
+  
 }
 
 module.exports = PartyPlugin;

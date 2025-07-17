@@ -71,6 +71,7 @@ class GuildPlugin {
     const keyboard = {
         inline_keyboard: [
             [{ text: '➕ Create a Guild', callback_data: 'guild_create_prompt' }],
+            [{ text: '✉️ View Invitations', callback_data: 'guild_invites_view' }],
             [{ text: '📜 Browse All Guilds', callback_data: 'guild_list_browse' }]
         ]
     };
@@ -102,6 +103,10 @@ What would you like to do?
       await this._inviteMember(msg, msg.text);
     } else if (state === 'awaiting_chat_message') {
       await this._sendGuildChat(msg, msg.text);
+    } else if (state === 'awaiting_guild_description') {
+      await this._setGuildDescription(msg, msg.text);
+    } else if (state === 'awaiting_guild_min_level') {
+      await this._setGuildMinLevel(msg, msg.text);
     }
   }
 
@@ -131,6 +136,10 @@ What would you like to do?
         await this._listGuilds(chatId);
         break;
 
+      case 'guild_invites_view':
+        await this._listInvitations(chatId, userId);
+        break;
+
       case 'guild_members_view':
         if (guild) await this._listMembers(chatId, guild);
         break;
@@ -154,10 +163,59 @@ What would you like to do?
       case 'guild_leave_execute':
         await this._leaveGuild(chatId, userId);
         break;
+
+      case 'guild_disband_confirm':
+        await this.bot.sendMessage(chatId, 'Are you absolutely sure you want to disband your guild? This action cannot be undone.', {
+          reply_markup: { inline_keyboard: [[{ text: '✅ Yes, Disband Guild', callback_data: 'guild_disband_execute' }, { text: '❌ Cancel', callback_data: 'guild_menu_show' }]] }
+        });
+        break;
+
+      case 'guild_disband_execute':
+        await this._disbandGuild(chatId, userId);
+        break;
+
+      case 'guild_settings_menu':
+        if (guild && guild.leader === userId) {
+          await this._showGuildSettingsMenu(chatId, guild);
+        } else {
+          await this.bot.sendMessage(chatId, '❌ You are not the guild leader.');
+        }
+        break;
+
+      case 'accept_guild_invite':
+      case 'decline_guild_invite':
+        const guildIdFromInvite = data.substring(data.lastIndexOf('_') + 1);
+        if (data.startsWith('accept_guild_invite')) {
+          await this._acceptGuildInvite(chatId, userId, guildIdFromInvite);
+        } else {
+          await this._declineGuildInvite(chatId, userId, guildIdFromInvite);
+        }
+        break;
       
       case 'guild_menu_show':
         if (guild) await this.showGuildMenu(chatId, userId, guild);
         else await this.showNoGuildMenu(chatId);
+        break;
+
+      case 'guild_setting_description':
+        this.playerStates.set(userId, 'awaiting_guild_description');
+        await this.bot.sendMessage(chatId, '📝 Please type the new description for your guild.');
+        break;
+
+      case 'guild_setting_public_join':
+        if (guild && guild.leader === userId) {
+          guild.settings.publicJoin = !guild.settings.publicJoin;
+          this.db.setGuild(guild.id, guild);
+          await this.bot.sendMessage(chatId, `🚪 Public Join is now ${guild.settings.publicJoin ? 'Enabled' : 'Disabled'}.`);
+          await this._showGuildSettingsMenu(chatId, guild);
+        } else {
+          await this.bot.sendMessage(chatId, '❌ You are not the guild leader.');
+        }
+        break;
+
+      case 'guild_setting_min_level':
+        this.playerStates.set(userId, 'awaiting_guild_min_level');
+        await this.bot.sendMessage(chatId, '⬆️ Please enter the new minimum level required to join your guild.');
         break;
     }
   }
@@ -180,7 +238,7 @@ What would you like to do?
     }
 
     // Check if guild name is taken
-    const allGuilds = this.db.getAllGuilds() || [];
+    const allGuilds = Array.from(this.db.getAllGuilds().values());
     if (allGuilds.some(g => g.name.toLowerCase() === guildName.toLowerCase())) {
         return this.bot.sendMessage(msg.chat.id, `❌ A guild with the name "${guildName}" already exists.`);
     }
@@ -245,7 +303,7 @@ What would you like to do?
   }
   
   async _listGuilds(chatId) {
-      const guilds = this.db.getAllGuilds() || [];
+      const guilds = Array.from(this.db.getAllGuilds().values());
       if (guilds.length === 0) {
         return this.bot.sendMessage(chatId, '📋 There are no guilds yet. Why not create one?');
       }
@@ -258,6 +316,53 @@ What would you like to do?
         guildList += `  Members: ${guild.members.length}\n\n`;
       }
       await this.bot.sendMessage(chatId, guildList, { parse_mode: 'Markdown' });
+  }
+
+  async _listGuilds(chatId) {
+      const guilds = Array.from(this.db.getAllGuilds().values());
+      if (guilds.length === 0) {
+        return this.bot.sendMessage(chatId, '📋 There are no guilds yet. Why not create one?');
+      }
+
+      let guildList = '📋 *List of All Guilds*\n\n';
+      for (const guild of guilds) {
+        const leader = this.gameEngine.getCharacter(guild.leader);
+        guildList += `🏛️ *${guild.name}* (Lvl. ${guild.level})\n`;
+        guildList += `  Leader: ${leader ? leader.name : '-'}\n`;
+        guildList += `  Members: ${guild.members.length}\n\n`;
+      }
+      await this.bot.sendMessage(chatId, guildList, { parse_mode: 'Markdown' });
+  }
+
+  async _listInvitations(chatId, userId) {
+    const invitations = this.db.getGuildInvitations(userId);
+    if (invitations.length === 0) {
+      return this.bot.sendMessage(chatId, '✉️ You have no pending guild invitations.');
+    }
+
+    let inviteMessage = '✉️ *Your Guild Invitations*\n\n';
+    for (const invite of invitations) {
+      const guild = this.db.getGuild(invite.guildId);
+      if (guild) {
+        const inviter = this.gameEngine.getCharacter(invite.inviterId);
+        inviteMessage += `🏛️ *${guild.name}* from ${inviter ? inviter.name : 'Unknown'}\n`;
+        inviteMessage += `  Level: ${guild.level}\n`;
+        inviteMessage += `  Members: ${guild.members.length}\n`;
+        inviteMessage += `  _Expires: ${new Date(invite.expiresAt).toLocaleString()}_\n`;
+        inviteMessage += `\n`;
+        const keyboard = {
+          inline_keyboard: [
+            [{ text: '✅ Accept', callback_data: `accept_guild_invite_${invite.guildId}` }],
+            [{ text: '❌ Decline', callback_data: `decline_guild_invite_${invite.guildId}` }]
+          ]
+        };
+        await this.bot.sendMessage(chatId, inviteMessage, { parse_mode: 'Markdown', reply_markup: keyboard });
+        inviteMessage = ''; // Clear for next invite
+      }
+    }
+    if (inviteMessage) { // Send any remaining message if there was only one invite
+        await this.bot.sendMessage(chatId, inviteMessage, { parse_mode: 'Markdown' });
+    }
   }
 
   async _sendGuildChat(msg, message) {
@@ -276,9 +381,258 @@ What would you like to do?
   }
 
   async _inviteMember(msg, targetId) {
-      // This is a placeholder for invite logic
-      // It would involve creating an invitation in the DB for the target
-      await this.bot.sendMessage(msg.chat.id, `✅ Invitation sent to character ID ${targetId}. (Feature in development)`);
+      const userId = msg.from.id;
+      const character = this.gameEngine.getCharacter(userId);
+      const guild = character.guild ? this.db.getGuild(character.guild) : null;
+
+      if (!guild || guild.leader !== userId) {
+          return this.bot.sendMessage(msg.chat.id, "❌ You are not the guild leader.");
+      }
+
+      const targetCharacter = this.gameEngine.getCharacter(parseInt(targetId));
+      if (!targetCharacter) {
+          return this.bot.sendMessage(msg.chat.id, "❌ Target character not found.");
+      }
+      if (targetCharacter.guild) {
+          return this.bot.sendMessage(msg.chat.id, "❌ Target is already in a guild.");
+      }
+
+      const invitation = {
+          guildId: guild.id,
+          inviterId: userId,
+          expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+      };
+      this.db.setGuildInvitation(targetCharacter.id, invitation);
+
+      await this.bot.sendMessage(msg.chat.id, `✅ Invitation sent to ${targetCharacter.name}.`);
+      await this.bot.sendMessage(targetCharacter.id, `✉️ You have received a guild invitation from *${guild.name}*! Use /guild to view it.`, { parse_mode: 'Markdown' });
+  }
+
+  async _acceptGuildInvite(chatId, userId, guildId) {
+    const character = this.gameEngine.getCharacter(userId);
+    const guild = this.db.getGuild(guildId);
+
+    if (!character || !guild) {
+      return this.bot.sendMessage(chatId, '❌ Guild or character not found.');
+    }
+    if (character.guild) {
+      return this.bot.sendMessage(chatId, '❌ You are already in a guild. Leave it first to accept a new invitation.');
+    }
+
+    // Remove invitation
+    this.db.deleteGuildInvitation(userId, guildId);
+
+    // Add to guild
+    guild.members.push(userId);
+    character.guild = guildId;
+
+    this.db.setGuild(guild.id, guild);
+    this.gameEngine.updateCharacter(userId, character);
+
+    await this.bot.sendMessage(chatId, `🎉 You have joined *${guild.name}*!`);
+    await this.notifyGuildMembers(guild, `🎉 ${character.name} has joined the guild!`, userId);
+    await this.showGuildMenu(chatId, userId, guild);
+  }
+
+  async _declineGuildInvite(chatId, userId, guildId) {
+    const character = this.gameEngine.getCharacter(userId);
+    const guild = this.db.getGuild(guildId);
+
+    if (!character || !guild) {
+      return this.bot.sendMessage(chatId, '❌ Guild or character not found.');
+    }
+
+    // Remove invitation
+    this.db.deleteGuildInvitation(userId, guildId);
+
+    await this.bot.sendMessage(chatId, `You have declined the invitation to *${guild.name}*.`);
+    await this.showNoGuildMenu(chatId);
+  }
+
+  async _declineGuildInvite(chatId, userId, guildId) {
+    const character = this.gameEngine.getCharacter(userId);
+    const guild = this.db.getGuild(guildId);
+
+    if (!character || !guild) {
+      return this.bot.sendMessage(chatId, '❌ Guild or character not found.');
+    }
+
+    // Remove invitation
+    this.db.deleteGuildInvitation(userId, guildId);
+
+    await this.bot.sendMessage(chatId, `You have declined the invitation to *${guild.name}*.`);
+    await this.showNoGuildMenu(chatId);
+  }
+
+  async _showGuildSettingsMenu(chatId, guild) {
+    const keyboard = {
+      inline_keyboard: [
+        [{ text: '📝 Change Description', callback_data: 'guild_setting_description' }],
+        [{ text: '🚪 Toggle Public Join', callback_data: 'guild_setting_public_join' }],
+        [{ text: '⬆️ Set Min Level', callback_data: 'guild_setting_min_level' }],
+        [{ text: '🔙 Back to Guild Menu', callback_data: 'guild_menu_show' }]
+      ]
+    };
+
+    const publicJoinStatus = guild.settings.publicJoin ? '🟢 Enabled' : '🔴 Disabled';
+
+    const message = `
+⚙️ *${guild.name} - Guild Settings*
+
+*Current Settings:*
+Description: ${guild.description}
+Public Join: ${publicJoinStatus}
+Minimum Level: ${guild.settings.minLevel}
+
+What would you like to change?
+    `;
+
+    await this.bot.sendMessage(chatId, message, { parse_mode: 'Markdown', reply_markup: keyboard });
+  }
+
+  async _inviteMember(msg, targetId) {
+      const userId = msg.from.id;
+      const character = this.gameEngine.getCharacter(userId);
+      const guild = character.guild ? this.db.getGuild(character.guild) : null;
+
+      if (!guild || guild.leader !== userId) {
+          return this.bot.sendMessage(msg.chat.id, "❌ You are not the guild leader.");
+      }
+
+      const targetCharacter = this.gameEngine.getCharacter(parseInt(targetId));
+      if (!targetCharacter) {
+          return this.bot.sendMessage(msg.chat.id, "❌ Target character not found.");
+      }
+      if (targetCharacter.guild) {
+          return this.bot.sendMessage(msg.chat.id, "❌ Target is already in a guild.");
+      }
+
+      const invitation = {
+          guildId: guild.id,
+          inviterId: userId,
+          expiresAt: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+      };
+      this.db.setGuildInvitation(targetCharacter.id, invitation);
+
+      await this.bot.sendMessage(msg.chat.id, `✅ Invitation sent to ${targetCharacter.name}.`);
+      await this.bot.sendMessage(targetCharacter.id, `✉️ You have received a guild invitation from *${guild.name}*! Use /guild to view it.`, { parse_mode: 'Markdown' });
+  }
+
+  async _acceptGuildInvite(chatId, userId, guildId) {
+    const character = this.gameEngine.getCharacter(userId);
+    const guild = this.db.getGuild(guildId);
+
+    if (!character || !guild) {
+      return this.bot.sendMessage(chatId, '❌ Guild or character not found.');
+    }
+    if (character.guild) {
+      return this.bot.sendMessage(chatId, '❌ You are already in a guild. Leave it first to accept a new invitation.');
+    }
+
+    // Remove invitation
+    this.db.deleteGuildInvitation(userId, guildId);
+
+    // Add to guild
+    guild.members.push(userId);
+    character.guild = guildId;
+
+    this.db.setGuild(guild.id, guild);
+    this.gameEngine.updateCharacter(userId, character);
+
+    await this.bot.sendMessage(chatId, `🎉 You have joined *${guild.name}*!`);
+    await this.notifyGuildMembers(guild, `🎉 ${character.name} has joined the guild!`, userId);
+    await this.showGuildMenu(chatId, userId, guild);
+  }
+
+  async _declineGuildInvite(chatId, userId, guildId) {
+    const character = this.gameEngine.getCharacter(userId);
+    const guild = this.db.getGuild(guildId);
+
+    if (!character || !guild) {
+      return this.bot.sendMessage(chatId, '❌ Guild or character not found.');
+    }
+
+    // Remove invitation
+    this.db.deleteGuildInvitation(userId, guildId);
+
+    await this.bot.sendMessage(chatId, `You have declined the invitation to *${guild.name}*.`);
+    await this.showNoGuildMenu(chatId);
+  }
+
+  async _declineGuildInvite(chatId, userId, guildId) {
+    const character = this.gameEngine.getCharacter(userId);
+    const guild = this.db.getGuild(guildId);
+
+    if (!character || !guild) {
+      return this.bot.sendMessage(chatId, '❌ Guild or character not found.');
+    }
+
+    // Remove invitation
+    this.db.deleteGuildInvitation(userId, guildId);
+
+    await this.bot.sendMessage(chatId, `You have declined the invitation to *${guild.name}*.`);
+    await this.showNoGuildMenu(chatId);
+  }
+
+  async _disbandGuild(chatId, userId) {
+    const character = this.gameEngine.getCharacter(userId);
+    const guild = character.guild ? this.db.getGuild(character.guild) : null;
+
+    if (!guild || guild.leader !== userId) {
+      return this.bot.sendMessage(chatId, '❌ You are not the guild leader or not in a guild.');
+    }
+
+    // Remove guild from all members
+    for (const memberId of guild.members) {
+      const memberChar = this.gameEngine.getCharacter(memberId);
+      if (memberChar) {
+        memberChar.guild = null;
+        this.gameEngine.updateCharacter(memberId, memberChar);
+      }
+    }
+
+    // Delete guild from database
+    this.db.guilds.delete(guild.id);
+    await this.db.saveGuilds();
+
+    await this.bot.sendMessage(chatId, `💥 Guild *${guild.name}* has been disbanded!`);
+    await this.notifyGuildMembers(guild, `💥 Your guild *${guild.name}* has been disbanded by the leader.`, userId);
+    await this.showNoGuildMenu(chatId);
+  }
+
+  async _setGuildDescription(msg, description) {
+    const userId = msg.from.id;
+    const character = this.gameEngine.getCharacter(userId);
+    const guild = character.guild ? this.db.getGuild(character.guild) : null;
+
+    if (!guild || guild.leader !== userId) {
+      return this.bot.sendMessage(msg.chat.id, '❌ You are not the guild leader.');
+    }
+
+    guild.description = description;
+    this.db.setGuild(guild.id, guild);
+    await this.bot.sendMessage(msg.chat.id, '✅ Guild description updated!');
+    await this._showGuildSettingsMenu(msg.chat.id, guild);
+  }
+
+  async _setGuildMinLevel(msg, level) {
+    const userId = msg.from.id;
+    const character = this.gameEngine.getCharacter(userId);
+    const guild = character.guild ? this.db.getGuild(character.guild) : null;
+
+    if (!guild || guild.leader !== userId) {
+      return this.bot.sendMessage(msg.chat.id, '❌ You are not the guild leader.');
+    }
+
+    const minLevel = parseInt(level);
+    if (isNaN(minLevel) || minLevel < 1 || minLevel > 999) {
+      return this.bot.sendMessage(msg.chat.id, '❌ Invalid level. Please enter a number between 1 and 999.');
+    }
+
+    guild.settings.minLevel = minLevel;
+    this.db.setGuild(guild.id, guild);
+    await this.bot.sendMessage(msg.chat.id, `✅ Minimum required level set to ${minLevel}.`);
+    await this._showGuildSettingsMenu(msg.chat.id, guild);
   }
 
   async notifyGuildMembers(guild, message, excludeId = null) {

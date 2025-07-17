@@ -511,6 +511,11 @@ class AdminPlugin {
     const userId = callbackQuery.from.id;
     const data = callbackQuery.data;
 
+    // Only process callbacks that start with 'admin_'
+    if (!data.startsWith('admin_')) {
+      return false;
+    }
+
     if (!this.isAdmin(userId)) {
       await this.bot.answerCallbackQuery(callbackQuery.id, 'Admin only!');
       return true;
@@ -558,7 +563,7 @@ class AdminPlugin {
     return false;
   }
 
-  async handleMessage(msg) {
+  async textHandler(msg) {
     const userId = msg.from.id;
     if (!this.isAdmin(userId) || !this.adminState[userId]) {
       return;

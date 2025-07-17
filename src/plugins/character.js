@@ -372,6 +372,7 @@ class CharacterPlugin {
     const userId = callbackQuery.from.id;
     const data = callbackQuery.data;
     
+    console.log(`[CharacterPlugin] Raw data received: ${data}`); // Added log
     console.log(`Character plugin handling callback: ${data} for user ${userId}`);
 
     if (data === 'create_character') {
@@ -535,15 +536,15 @@ class CharacterPlugin {
       return true;
     }
 
+    // If no specific callback was handled, return false
     return false;
   }
 
   async middleware(msg) {
-    // Check if user has character for commands that require it
-    const requiresCharacter = ['status', 'stats', 'inventory', 'equipment', 'map', 'move', 'hunt'];
-    
+    // Only apply character check for text messages that are commands
     if (msg && msg.text && msg.text.startsWith('/')) {
       const command = msg.text.split(' ')[0].substring(1);
+      const requiresCharacter = ['status', 'stats', 'inventory', 'equipment', 'map', 'move', 'hunt', 'guild', 'party']; // Added guild and party for completeness
       
       if (requiresCharacter.includes(command)) {
         const userId = msg.from.id;
@@ -558,7 +559,7 @@ class CharacterPlugin {
       }
     }
     
-    return true; // Continue processing
+    return true; // Continue processing for all other messages (including callbacks)
   }
 }
 

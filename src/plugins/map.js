@@ -215,6 +215,7 @@ class MapPlugin {
     const userId = callbackQuery.from.id;
     const data = callbackQuery.data;
     
+    console.log(`[MapPlugin] Raw data received: ${data}`); // Added log
     console.log(`Map plugin handling callback: ${data} for user ${userId}`);
 
     if (data.startsWith('move_')) {
@@ -337,6 +338,7 @@ class MapPlugin {
       return true;
     }
 
+    // If no specific callback was handled, return false
     return false;
   }
 }

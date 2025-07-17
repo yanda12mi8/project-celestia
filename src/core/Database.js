@@ -8,6 +8,8 @@ class Database {
     this.users = new Map();
     this.characters = new Map();
     this.guilds = new Map();
+    this.parties = new Map(); // New: Stores party data
+    this.guildInvitations = new Map(); // New: Stores pending guild invitations
     this.items = {};
     this.monsters = new Map();
     this.maps = new Map();
@@ -26,6 +28,8 @@ class Database {
     await this.loadUsers();
     await this.loadCharacters();
     await this.loadGuilds();
+    await this.loadParties(); // New: Load parties
+    await this.loadGuildInvitations();
     await this.loadItems();
     await this.loadMonsters();
     await this.loadMaps();
@@ -99,6 +103,50 @@ class Database {
       await fs.writeJSON(guildsFile, data, { spaces: 2 });
     } catch (error) {
       console.error('Error saving guilds:', error);
+    }
+  }
+
+  async loadParties() {
+    const partiesFile = path.join(this.dataDir, 'parties.json');
+    try {
+      if (await fs.pathExists(partiesFile)) {
+        const data = await fs.readJSON(partiesFile);
+        this.parties = new Map(Object.entries(data));
+      }
+    } catch (error) {
+      console.error('Error loading parties:', error);
+    }
+  }
+
+  async saveParties() {
+    const partiesFile = path.join(this.dataDir, 'parties.json');
+    try {
+      const data = Object.fromEntries(this.parties);
+      await fs.writeJSON(partiesFile, data, { spaces: 2 });
+    } catch (error) {
+      console.error('Error saving parties:', error);
+    }
+  }
+
+  async loadGuildInvitations() {
+    const invitesFile = path.join(this.dataDir, 'guild_invitations.json');
+    try {
+      if (await fs.pathExists(invitesFile)) {
+        const data = await fs.readJSON(invitesFile);
+        this.guildInvitations = new Map(Object.entries(data));
+      }
+    } catch (error) {
+      console.error('Error loading guild invitations:', error);
+    }
+  }
+
+  async saveGuildInvitations() {
+    const invitesFile = path.join(this.dataDir, 'guild_invitations.json');
+    try {
+      const data = Object.fromEntries(this.guildInvitations);
+      await fs.writeJSON(invitesFile, data, { spaces: 2 });
+    } catch (error) {
+      console.error('Error saving guild invitations:', error);
     }
   }
 
@@ -485,6 +533,43 @@ class Database {
   setGuild(guildId, guildData) {
     this.guilds.set(guildId, guildData);
     this.saveGuilds();
+  }
+
+  // Party methods
+  getParty(partyId) {
+    return this.parties.get(partyId);
+  }
+
+  setParty(partyId, partyData) {
+    this.parties.set(partyId, partyData);
+    this.saveParties();
+  }
+
+  deleteParty(partyId) {
+    this.parties.delete(partyId);
+    this.saveParties();
+  }
+
+  getAllParties() {
+    return this.parties;
+  }
+
+  getGuildInvitations(userId) {
+    return this.guildInvitations.get(userId.toString()) || [];
+  }
+
+  setGuildInvitation(userId, invitation) {
+    const invites = this.getGuildInvitations(userId);
+    invites.push(invitation);
+    this.guildInvitations.set(userId.toString(), invites);
+    this.saveGuildInvitations();
+  }
+
+  deleteGuildInvitation(userId, guildId) {
+    let invites = this.getGuildInvitations(userId);
+    invites = invites.filter(invite => invite.guildId !== guildId);
+    this.guildInvitations.set(userId.toString(), invites);
+    this.saveGuildInvitations();
   }
 
   // Item methods
