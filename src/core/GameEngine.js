@@ -254,7 +254,6 @@ class GameEngine {
       const zenyGained = combat.monster.zeny || Math.floor(Math.random() * 50) + 10;
       character.inventory.zeny += zenyGained;
       rewards.zeny = zenyGained;
-      }
 
       // Give item drops
       if (combat.monster.drops && combat.monster.drops.length > 0) {
@@ -265,7 +264,7 @@ class GameEngine {
             const item = this.db.getItem(dropId);
             if (item) {
               const quantity = 1;
-            if (!character.inventory.items[randomDrop]) {
+              if (!character.inventory.items[dropId]) {
                 character.inventory.items[dropId] = 0;
               }
               character.inventory.items[dropId] += quantity;
@@ -302,7 +301,7 @@ class GameEngine {
 
     this.activeCombats.delete(userId);
     return rewards;
-  }""
+  }
 
   getCombat(userId) {
     return this.activeCombats.get(userId);
