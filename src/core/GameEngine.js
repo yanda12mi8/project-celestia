@@ -258,12 +258,23 @@ class GameEngine {
       // Give item drops
       if (combat.monster.drops && combat.monster.drops.length > 0) {
         // Check each possible drop with individual drop rates
-        for (const dropId of combat.monster.drops) {
-          const dropChance = Math.random();
-          if (dropChance < 0.3) { // 30% chance for each item
+        for (const drop of combat.monster.drops) {
+          const dropChance = Math.random() * 100; // Convert to percentage
+          let dropId, dropRate, quantity = 1;
+          
+          // Handle both old format (string) and new format (object)
+          if (typeof drop === 'string') {
+            dropId = drop;
+            dropRate = 30; // Default 30% for old format
+          } else {
+            dropId = drop.item;
+            dropRate = drop.rate;
+            quantity = drop.quantity || 1;
+          }
+          
+          if (dropChance < dropRate) {
             const item = this.db.getItem(dropId);
             if (item) {
-              const quantity = 1;
               if (!character.inventory.items[dropId]) {
                 character.inventory.items[dropId] = 0;
               }
