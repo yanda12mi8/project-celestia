@@ -435,8 +435,8 @@ class CombatPlugin {
           `🏃 *You ran away from combat!*\n\nYou escaped safely.`
         );
       } else {
-        // Monster gets a free attack
-        const result = this.gameEngine.performAttack(userId);
+        // Monster gets a free attack (solo combat only)
+        const result = this.gameEngine.performAttack(userId, 'attack');
         if (result) {
           await this.processCombatResult(callbackQuery.message.chat.id, userId, result);
         }

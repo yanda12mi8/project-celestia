@@ -319,6 +319,11 @@ class GameEngine {
     }
     if (!combat) return null;
     
+    // Clear timeout if exists
+    if (combat.battleTimeout) {
+      clearTimeout(combat.battleTimeout);
+    }
+    
     const rewards = {
       exp: 0,
       zeny: 0,
