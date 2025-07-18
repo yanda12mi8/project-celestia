@@ -9,6 +9,11 @@ class CombatPlugin {
       'attack': this.handleAttack,
       'combat': this.handleCombat
     };
+    this.inactiveCombatCheck = setInterval(() => this.gameEngine.checkInactiveCombats(), 60000); // Periksa setiap menit
+  }
+
+  cleanup() {
+    clearInterval(this.inactiveCombatCheck);
   }
 
   async init() {
@@ -81,14 +86,20 @@ class CombatPlugin {
       return;
     }
 
-    const result = this.gameEngine.performAttack(userId);
+    const result = this.gameEngine.registerPlayerAction(userId, 'attack');
     
-    if (result) {
+    if (result && result.error) {
+      await this.bot.sendMessage(msg.chat.id, `❌ ${result.error}`);
+      return;
+    }
+
+    if (result && result.results) {
       await this.processCombatResult(msg.chat.id, userId, result);
-    } else {
-      await this.bot.sendMessage(msg.chat.id,
-        `❌ Failed to perform attack!`
-      );
+    } else if (result && result.success) {
+      const combat = this.gameEngine.getCombat(userId);
+      if (combat) {
+        await this.showCombatStatus(null, userId);
+      }
     }
   }
 
@@ -110,21 +121,37 @@ class CombatPlugin {
     const combat = this.gameEngine.getCombat(userId);
     
     if (!combat) {
-      await this.bot.sendMessage(chatId,
-        `❌ Combat not found!`
-      );
+      // Coba kirim pesan ke chatId jika ada, jika tidak, jangan lakukan apa-apa.
+      if (chatId) {
+        try {
+          await this.bot.sendMessage(chatId, `❌ Pertarungan tidak ditemukan!`);
+        } catch (e) {
+          console.error(`Gagal mengirim pesan status pertarungan ke ${chatId}`, e)
+        }
+      }
       return;
     }
 
+    // Untuk pertarungan party, kita perlu mengirim pembaruan ke setiap pemain.
+    if (combat.isPartyBattle) {
+      for (const player of combat.players) {
+        // Kita perlu mendapatkan chatId untuk setiap pemain. Asumsinya adalah ID pengguna.
+        const playerChatId = player.id;
+        await this.sendIndividualCombatStatus(playerChatId, player.id, combat);
+      }
+    } else {
+      await this.sendIndividualCombatStatus(chatId, userId, combat);
+    }
+  }
+
+  async sendIndividualCombatStatus(chatId, userId, combat) {
     let playersInfo = '';
     if (combat.isPartyBattle) {
       playersInfo = `👥 *Party Battle*\n\n`;
-      for (let i = 0; i < combat.players.length; i++) {
-        const player = combat.players[i];
-        const isCurrentTurn = combat.turn === 'player' && combat.currentPlayerIndex === i;
-        const turnIndicator = isCurrentTurn ? '🎯 ' : '';
+      for (const player of combat.players) {
+        const hasActed = combat.playerActions.has(player.id) ? '✅' : ''
         const playerHpBar = this.createHealthBar(player.hp, player.maxHp);
-        playersInfo += `${turnIndicator}👤 *${player.name}*\n`;
+        playersInfo += `👤 *${player.name}* ${hasActed}\n`;
         playersInfo += `❤️ HP: ${playerHpBar} ${player.hp}/${player.maxHp}\n\n`;
       }
     } else {
@@ -135,6 +162,7 @@ class CombatPlugin {
       playersInfo += `⚔️ Attack: ${player.attack}\n`;
       playersInfo += `🛡️ Defense: ${player.defense}\n\n`;
     }
+
     const keyboard = {
       inline_keyboard: [
         [
@@ -151,24 +179,26 @@ class CombatPlugin {
     const monsterHpBar = this.createHealthBar(combat.monster.hp, combat.monster.maxHp);
 
     const currentTurnText = combat.turn === 'player' ? 
-      (combat.isPartyBattle ? 
-        `${combat.players[combat.currentPlayerIndex].name}'s turn!` : 
-        'Your turn!') : 
+      (combat.isPartyBattle ? 'Party turn!' : 'Your turn!') : 
       'Monster\'s turn';
 
-    const canAct = combat.turn === 'player' && 
-      (!combat.isPartyBattle || combat.players[combat.currentPlayerIndex].id === userId);
-    await this.bot.sendMessage(chatId,
-      `⚔️ *Combat Status*\n\n` +
-      playersInfo +
-      `👹 *${combat.monster.name}*\n` +
-      `❤️ HP: ${monsterHpBar} ${combat.monster.hp}/${combat.monster.maxHp}\n` +
-      `⚔️ Attack: ${combat.monster.attack}\n` +
-      `🛡️ Defense: ${combat.monster.defense}\n\n` +
-      `🎯 Turn: ${currentTurnText}\n\n` +
-      `${canAct ? 'Choose your action:' : 'Waiting...'}`,
-      { parse_mode: 'Markdown', reply_markup: canAct ? keyboard : undefined }
-    );
+    const canAct = combat.turn === 'player' && (!combat.isPartyBattle || !combat.playerActions.has(userId));
+
+    try {
+      await this.bot.sendMessage(chatId,
+        `⚔️ *Combat Status*\n\n` +
+        playersInfo +
+        `👹 *${combat.monster.name}*\n` +
+        `❤️ HP: ${monsterHpBar} ${combat.monster.hp}/${combat.monster.maxHp}\n` +
+        `⚔️ Attack: ${combat.monster.attack}\n` +
+        `🛡️ Defense: ${combat.monster.defense}\n\n` +
+        `🎯 Turn: ${currentTurnText}\n\n` +
+        `${canAct ? 'Choose your action:' : 'Waiting for other players...'}`,
+        { parse_mode: 'Markdown', reply_markup: canAct ? keyboard : undefined }
+      );
+    } catch (e) {
+        console.error(`Gagal mengirim status pertarungan ke ${chatId}`, e)
+    }
   }
 
   createHealthBar(current, max) {
@@ -181,6 +211,11 @@ class CombatPlugin {
   }
 
   async processCombatResult(chatId, userId, result) {
+    if (result.cancelled) {
+      await this.bot.sendMessage(chatId, '⚔️ Pertarungan telah dibatalkan karena tidak ada aktivitas.');
+      return;
+    }
+
     const { combat, results, error } = result;
     
     if (error) {
@@ -191,17 +226,41 @@ class CombatPlugin {
     let message = '⚔️ *Combat Round*\n\n';
     
     for (const res of results) {
-      if (res.type === 'attack') {
-        message += `💥 ${res.attacker} attacks ${res.target} for ${res.damage} damage!\n`;
-      } else if (res.type === 'critical') {
-        message += `💥 *CRITICAL HIT!* ${res.attacker} attacks ${res.target} for ${res.damage} damage!\n`;
+      if (res.type === 'player_attack') {
+        if (res.isCritical) {
+          message += `💥 *CRITICAL HIT!* ${res.attacker} attacks ${res.target} for ${res.damage} damage!\n`;
+        } else if (res.isMiss) {
+          message += `💨 ${res.attacker} attacks ${res.target} but misses!\n`;
+        } else {
+          message += `💥 ${res.attacker} attacks ${res.target} for ${res.damage} damage!\n`;
+        }
+      } else if (res.type === 'monster_attack') {
+        if (res.isCritical) {
+          message += `💥 *CRITICAL HIT!* ${res.attacker} attacks ${res.target} for ${res.damage} damage!\n`;
+        } else if (res.isMiss) {
+          message += `💨 ${res.attacker} attacks ${res.target} but misses!\n`;
+        } else {
+          message += `💥 ${res.attacker} attacks ${res.target} for ${res.damage} damage!\n`;
+        }
       } else if (res.type === 'evade') {
         message += `💨 ${res.target} evaded the attack from ${res.attacker}!\n`;
+      } else if (res.type === 'defend') {
+        message += `🛡️ ${res.player} takes a defensive stance!\n`;
+      } else if (res.type === 'item_use') {
+        message += `💊 ${res.message}\n`;
+      } else if (res.type === 'player_action_failed') {
+        message += `❌ ${res.message}\n`;
+      } else if (res.type === 'run_success') {
+        message += `🏃 *You ran away from combat!*\n\nYou escaped safely.\n`;
+      } else if (res.type === 'run_fail') {
+        message += `❌ Failed to run away!\n`;
       } else if (res.type === 'victory') {
-        message += `\n🎉 *${combat.isPartyBattle ? 'Party Victory!' : 'Victory!'}*\n`;
+        message += `
+🎉 *${combat.isPartyBattle ? 'Party Victory!' : 'Victory!'}*
+`;
         message += `You defeated the ${combat.monster.name}!\n`;
       } else if (res.type === 'defeat') {
-        message += `\n💀 *${combat.isPartyBattle ? 'Party Defeat!' : 'Defeat!'}*\n`;
+        message += `\n💀 *${combat.isPartyBattle ? 'Party Defeat!' : 'Defeat!'}\n`;
         message += `You were defeated by the ${combat.monster.name}!\n`;
         message += `You lost some experience and were revived with 1 HP...`;
       } else if (res.type === 'rewards') {
@@ -251,16 +310,9 @@ class CombatPlugin {
       }
     }
     if (combat.status === 'active') {
-      // Show updated combat status
+      // Tampilkan status pertarungan yang diperbarui untuk semua orang
       setTimeout(() => {
-        // Show combat status to all party members
-        if (combat.isPartyBattle) {
-          for (const player of combat.players) {
-            this.showCombatStatus(chatId, player.id);
-          }
-        } else {
-          this.showCombatStatus(chatId, userId);
-        }
+        this.showCombatStatus(chatId, userId); // Cukup panggil ini, itu akan menangani party
       }, 2000);
     }
   }
@@ -279,8 +331,9 @@ class CombatPlugin {
       if (combat) {
         await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Combat started!' });
         
-        // Show combat status after a brief delay
+        // Tampilkan status pertarungan setelah penundaan singkat
         setTimeout(async () => {
+          // showCombatStatus sekarang menangani pengiriman ke semua anggota party
           await this.showCombatStatus(callbackQuery.message.chat.id, userId);
         }, 500);
       } else {
@@ -297,54 +350,41 @@ class CombatPlugin {
 
     if (data === 'combat_attack') {
       await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Attacking...' });
-      const result = this.gameEngine.performAttack(userId);
+      const result = this.gameEngine.registerPlayerAction(userId, 'attack');
       
-      if (result) {
-        if (result.error) {
-          await this.bot.sendMessage(callbackQuery.message.chat.id, `❌ ${result.error}`);
-          return true;
-        }
-        await this.processCombatResult(callbackQuery.message.chat.id, userId, result);
-      } else {
-        await this.bot.sendMessage(callbackQuery.message.chat.id, '❌ Failed to attack!');
+      if (result && result.error) {
+        await this.bot.sendMessage(callbackQuery.message.chat.id, `❌ ${result.error}`);
+        return true;
       }
-      return true;
+
+      if (result && result.results) {
+        await this.processCombatResult(callbackQuery.message.chat.id, userId, result);
+      } else if (result && result.success) {
+        // Aksi berhasil dicatat, perbarui status untuk semua pemain.
+        // Ini berfungsi sebagai konfirmasi implisit.
+        const combat = this.gameEngine.getCombat(userId);
+        if (combat) {
+          await this.showCombatStatus(null, userId);
+        }
+      }
     }
 
     if (data === 'combat_defend') {
       await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Defending...' });
-      const combat = this.gameEngine.getCombat(userId);
+      const result = this.gameEngine.registerPlayerAction(userId, 'defend');
       
-      const canDefend = combat && combat.turn === 'player' && 
-        (!combat.isPartyBattle || combat.players[combat.currentPlayerIndex].id === userId);
-      
-      if (canDefend) {
-        const currentPlayer = combat.isPartyBattle ? 
-          combat.players[combat.currentPlayerIndex] : 
-          combat.players[0];
-          
-        // Defending reduces incoming damage by 50%
-        currentPlayer.defense *= 1.5;
-        
-        if (combat.isPartyBattle) {
-          combat.currentPlayerIndex++;
-          if (combat.currentPlayerIndex >= combat.players.length) {
-            combat.currentPlayerIndex = 0;
-            combat.turn = 'monster';
-          }
-        } else {
-          combat.turn = 'monster';
+      if (result && result.error) {
+        await this.bot.sendMessage(callbackQuery.message.chat.id, `❌ ${result.error}`);
+        return true;
+      }
+
+      if (result && result.results) {
+        await this.processCombatResult(callbackQuery.message.chat.id, userId, result);
+      } else if (result && result.success) {
+        const combat = this.gameEngine.getCombat(userId);
+        if (combat) {
+          await this.showCombatStatus(null, userId);
         }
-        
-        // Monster's turn
-        const result = this.gameEngine.performAttack(userId);
-        if (result) {
-          // Reset defense
-          currentPlayer.defense /= 1.5;
-          await this.processCombatResult(callbackQuery.message.chat.id, userId, result);
-        }
-      } else {
-        await this.bot.sendMessage(callbackQuery.message.chat.id, '❌ Cannot defend now!');
       }
       return true;
     }
@@ -384,61 +424,40 @@ class CombatPlugin {
 
     if (data.startsWith('use_combat_item_')) {
       const itemId = data.replace('use_combat_item_', '');
-      const result = this.gameEngine.useItem(userId, itemId);
+      await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Using item...' });
+      const result = this.gameEngine.registerPlayerAction(userId, { type: 'item', itemId: itemId });
 
-      // Always answer the callback query to remove the "loading" state
-      await this.bot.answerCallbackQuery(callbackQuery.id);
+      if (result && result.error) {
+        await this.bot.sendMessage(callbackQuery.message.chat.id, `❌ ${result.error}`);
+        return true;
+      }
 
-      if (result.success) {
-        // Send a message to the chat about the item used
-        await this.bot.sendMessage(callbackQuery.message.chat.id, `✅ ${result.message}`);
-
-        // Continue combat
+      if (result && result.results) {
+        await this.processCombatResult(callbackQuery.message.chat.id, userId, result);
+      } else if (result && result.success) {
         const combat = this.gameEngine.getCombat(userId);
-        if (combat && combat.status === 'active') {
-          combat.turn = 'monster';
-          const attackResult = this.gameEngine.performAttack(userId);
-          if (attackResult) {
-            // Use a timeout to make the flow feel more natural
-            setTimeout(async () => {
-              await this.processCombatResult(callbackQuery.message.chat.id, userId, attackResult);
-            }, 1500);
-          }
+        if (combat) {
+          await this.showCombatStatus(null, userId);
         }
-      } else {
-        // Send a failure message to the chat
-        await this.bot.sendMessage(callbackQuery.message.chat.id, `❌ ${result.message}`);
-        // Show combat status again so the user can choose another action
-        setTimeout(async () => {
-            await this.showCombatStatus(callbackQuery.message.chat.id, userId);
-        }, 500);
       }
       return true;
     }
 
     if (data === 'combat_run') {
       await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Attempting to run...' });
-      const combat = this.gameEngine.getCombat(userId);
-      
-      if (combat && combat.isPartyBattle) {
-        await this.bot.sendMessage(callbackQuery.message.chat.id,
-          `❌ Cannot run from party battle! All party members must agree to retreat.`
-        );
+      const result = this.gameEngine.registerPlayerAction(userId, 'run');
+
+      if (result && result.error) {
+        await this.bot.sendMessage(callbackQuery.message.chat.id, `❌ ${result.error}`);
         return true;
       }
-      
-      const runChance = Math.random();
-      
-      if (runChance < 0.7) {
-        this.gameEngine.endCombat(userId);
-        await this.bot.sendMessage(callbackQuery.message.chat.id,
-          `🏃 *You ran away from combat!*\n\nYou escaped safely.`
-        );
-      } else {
-        // Monster gets a free attack
-        const result = this.gameEngine.performAttack(userId);
-        if (result) {
-          await this.processCombatResult(callbackQuery.message.chat.id, userId, result);
+
+      if (result && result.results) {
+        await this.processCombatResult(callbackQuery.message.chat.id, userId, result);
+      } else if (result && result.success) {
+        const combat = this.gameEngine.getCombat(userId);
+        if (combat) {
+          await this.showCombatStatus(null, userId);
         }
       }
       return true;

@@ -3,14 +3,14 @@
     "id": 948962959,
     "name": "xBoii",
     "class": "novice",
-    "level": 9,
-    "exp": 333,
-    "expToNext": 427,
+    "level": 10,
+    "exp": 438,
+    "expToNext": 512,
     "stats": {
-      "hp": 197,
-      "maxHp": 210,
-      "sp": 90,
-      "maxSp": 90,
+      "hp": 198,
+      "maxHp": 220,
+      "sp": 95,
+      "maxSp": 95,
       "attack": 42,
       "defense": 25,
       "agility": 10,
@@ -18,20 +18,20 @@
       "vitality": 17,
       "luck": 15
     },
-    "statusPoints": 3,
-    "skillPoints": 4,
+    "statusPoints": 6,
+    "skillPoints": 5,
     "inventory": {
       "items": {
         "leather": 1,
-        "jellopy": 22,
-        "red_potion": 17,
-        "zeny_pouch": 4,
+        "jellopy": 24,
+        "red_potion": 18,
+        "zeny_pouch": 5,
         "yellow_potion": 10,
         "goblin_dagger": 1,
-        "apple": 1,
-        "leather_boots": 1
+        "apple": 2,
+        "leather_boots": 2
       },
-      "zeny": 9691
+      "zeny": 10483
     },
     "equipment": {
       "weapon": "iron_sword",
@@ -40,7 +40,7 @@
     },
     "position": {
       "map": "prontera",
-      "x": 4,
+      "x": 6,
       "y": 5
     },
     "quests": {
@@ -56,10 +56,10 @@
     "name": "HERO",
     "class": "novice",
     "level": 2,
-    "exp": 1,
+    "exp": 23,
     "expToNext": 120,
     "stats": {
-      "hp": 110,
+      "hp": 95,
       "maxHp": 110,
       "sp": 55,
       "maxSp": 55,
@@ -80,7 +80,7 @@
         "red_potion": 2,
         "apple": 1
       },
-      "zeny": 1156
+      "zeny": 1188
     },
     "equipment": {
       "weapon": null,

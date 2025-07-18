@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "keywords": [
     "telegram",
@@ -21,11 +21,13 @@
   "author": "RPG Bot Developer",
   "license": "MIT",
   "dependencies": {
-    "node-telegram-bot-api": "^0.66.0",
     "fs-extra": "^11.2.0",
+    "node-telegram-bot-api": "^0.66.0",
+    "source-map-support": "^0.5.21",
     "uuid": "^10.0.0"
   },
   "devDependencies": {
+    "jest": "^30.0.4",
     "nodemon": "^3.0.2"
   },
   "engines": {

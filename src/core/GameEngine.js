@@ -147,7 +147,7 @@ class GameEngine {
     // Check if player is in a party and party battle is enabled
     const partyPlugin = this.pluginManager ? this.pluginManager.getPlugin('party') : null;
     const party = partyPlugin ? partyPlugin.getPlayerParty(userId) : null;
-    const isPartyBattle = party && !party.settings.afk;
+    const isPartyBattle = party ? !party.settings.afk : false;
 
     let partyMembers = [userId];
     if (isPartyBattle) {
@@ -184,11 +184,15 @@ class GameEngine {
         level: monsterData.level,
         exp: monsterData.exp,
         drops: monsterData.drops,
-        zeny: monsterData.zeny || 0
+        zeny: monsterData.zeny || 0,
+        agility: monsterData.agility || 5 // Default agility
       },
       turn: 'player',
       status: 'active',
-      currentPlayerIndex: 0
+      currentPlayerIndex: 0,
+      playerActions: new Map(),
+      lastActionTimestamp: Date.now(),
+      turnTimer: null
     };
 
     // Set combat for all participating players
@@ -199,111 +203,220 @@ class GameEngine {
     return combat;
   }
 
-  performAttack(userId, action = 'attack') {
+  registerPlayerAction(userId, action) {
+    const combat = this.activeCombats.get(userId);
+    if (!combat || combat.status !== 'active' || combat.turn !== 'player') {
+      return { error: 'Bukan giliranmu atau pertarungan tidak aktif.' };
+    }
+
+    const player = combat.players.find(p => p.id === userId);
+    if (!player) {
+      return { error: 'Pemain tidak ditemukan dalam pertarungan.' };
+    }
+
+    if (player.hp <= 0) {
+      return { error: 'Kamu sudah kalah dan tidak bisa beraksi.' };
+    }
+
+    if (combat.playerActions.has(userId)) {
+      return { error: 'Kamu sudah memilih aksi untuk giliran ini.' };
+    }
+
+    // Validasi item sebelum mencatat aksi
+    if (typeof action === 'object' && action.type === 'item') {
+        const item = this.db.getItem(action.itemId);
+        const character = this.getCharacter(userId);
+        if (!item || !character.inventory.items[action.itemId]) {
+            action = { type: 'action_failed', message: 'Item not found or you do not have it.' };
+        } else if (item.type !== 'consumable') {
+            action = { type: 'action_failed', message: `You cannot use ${item.name}.` };
+        }
+    }
+
+    combat.playerActions.set(userId, action);
+    combat.lastActionTimestamp = Date.now();
+
+    const alivePlayersInRegister = combat.players.filter(p => p.hp > 0);
+    if (combat.playerActions.size === alivePlayersInRegister.length) {
+      return this.executeCombatTurn(userId);
+    }
+
+    return { success: true, message: 'Aksi dicatat. Menunggu pemain lain.' };
+  }
+
+  executeCombatTurn(userId) {
     const combat = this.activeCombats.get(userId);
     if (!combat || combat.status !== 'active') return null;
 
-    // For party battles, only the current player can act
-    if (combat.isPartyBattle) {
-      const currentPlayer = combat.players[combat.currentPlayerIndex];
-      if (currentPlayer.id !== userId) {
-        return { error: 'Not your turn!' };
-      }
-    }
-
     const results = [];
+    let alivePlayers;
 
+    console.log('--- executeCombatTurn start ---');
+    console.log('Initial Monster HP:', combat.monster.hp);
+    console.log('Initial Combat Status:', combat.status);
+
+    // 1. Process Player Actions
     if (combat.turn === 'player') {
-      const currentPlayer = combat.isPartyBattle ? 
-        combat.players[combat.currentPlayerIndex] : 
-        combat.players[0];
-      
-      // Player attack
-      const critChance = Math.min(50, currentPlayer.luck * 0.5);
-      const isCritical = Math.random() * 100 < critChance;
-      const baseDamage = currentPlayer.attack - combat.monster.defense;
-      let damage = Math.max(1, baseDamage + Math.floor(Math.random() * 5)); // Add some randomness
-      
-      if (isCritical) {
-        damage = Math.floor(damage * 1.5); // 150% damage on critical
+      const runActions = Array.from(combat.playerActions.values()).filter(a => a === 'run');
+      if (runActions.length > 0) {
+        const canAttemptRun = !combat.isPartyBattle || runActions.length === combat.players.length;
+        if (canAttemptRun) {
+          const runChance = Math.random();
+          if (runChance < 0.7) { // 70% chance to run
+            results.push({ type: 'run_success' });
+            this.endCombat(userId, combat);
+            console.log('--- executeCombatTurn end (run success) ---');
+            return { success: true, combat, results };
+          } else {
+            results.push({ type: 'run_fail' });
+          }
+        }
       }
 
-      combat.monster.hp -= damage;
-      results.push({
-        attacker: currentPlayer.name,
-        target: combat.monster.name,
-        damage: damage,
-        type: isCritical ? 'critical' : 'attack'
-      });
+      for (const [playerId, action] of combat.playerActions.entries()) {
+        const player = combat.players.find(p => p.id === playerId);
+        if (!player) continue;
 
+        const actionType = typeof action === 'object' ? action.type : action;
+
+        switch (actionType) {
+          case 'attack':
+            const playerAccuracy = player.agility * 0.5 + 80; // Base 80% hit chance
+            const monsterEvasion = combat.monster.agility * 0.2;
+            const hitChance = Math.max(10, Math.min(95, playerAccuracy - monsterEvasion));
+            const isMiss = Math.random() * 100 > hitChance;
+
+            if (isMiss) {
+              results.push({ attacker: player.name, target: combat.monster.name, type: 'player_attack', isCritical: false, isMiss: true });
+            } else {
+              const critChance = Math.min(50, player.luck * 0.5);
+              const isCritical = Math.random() * 100 < critChance;
+              const baseDamage = player.attack - combat.monster.defense;
+              let damage = Math.max(1, baseDamage + Math.floor(Math.random() * (player.attack * 0.1))); // Dmg variance
+
+              if (isCritical) {
+                damage = Math.floor(damage * 1.5);
+              }
+
+              combat.monster.hp -= damage;
+              console.log(`Player ${player.name} attacked monster. Monster HP: ${combat.monster.hp}`);
+              results.push({ attacker: player.name, target: combat.monster.name, damage: damage, type: 'player_attack', isCritical: isCritical, isMiss: false });
+            }
+            break;
+
+          case 'defend':
+            player.isDefending = true;
+            results.push({ type: 'defend', player: player.name });
+            break;
+
+          case 'item':
+            const itemResult = this.useItem(playerId, action.itemId, true);
+            results.push({ type: itemResult.success ? 'item_use' : 'player_action_failed', player: player.name, message: itemResult.message });
+            break;
+          case 'action_failed':
+            results.push({ type: 'player_action_failed', player: player.name, message: action.message });
+            break;
+        }
+      }
+
+      combat.playerActions.clear();
+
+      console.log('Monster HP after player actions:', combat.monster.hp);
+      console.log('Checking monster HP for victory condition:', combat.monster.hp);
       if (combat.monster.hp <= 0) {
         combat.status = 'victory';
-        results.push({ type: 'victory' });
-        const rewards = this.endCombat(userId, combat);
-        results.push({ type: 'rewards', rewards: rewards });
       } else {
-        if (combat.isPartyBattle) {
-          // Move to next player or monster turn
-          combat.currentPlayerIndex++;
-          if (combat.currentPlayerIndex >= combat.players.length) {
-            combat.currentPlayerIndex = 0;
-            combat.turn = 'monster';
-          }
-        } else {
-          combat.turn = 'monster';
-        }
+        combat.turn = 'monster';
       }
     }
 
+    // 2. Monster's Turn
     if (combat.turn === 'monster' && combat.status === 'active') {
-      // Monster attacks random player in party battle, or the single player
-      const targetPlayer = combat.isPartyBattle ? 
-        combat.players[Math.floor(Math.random() * combat.players.length)] :
+      alivePlayers = combat.players.filter(p => p.hp > 0);
+      const targetPlayer = combat.isPartyBattle ?
+        alivePlayers[Math.floor(Math.random() * alivePlayers.length)] :
         combat.players[0];
-      
-      const evasionChance = Math.min(75, targetPlayer.agility * 0.2);
-      const isEvaded = Math.random() * 100 < evasionChance;
 
-      if (isEvaded) {
-        results.push({
-            attacker: combat.monster.name,
-            target: targetPlayer.name,
-            type: 'evade'
-        });
+      const monsterAccuracy = 90; // Base 90% hit chance for monster
+      const playerEvasion = targetPlayer.agility * 0.2;
+      const monsterHitChance = Math.max(10, Math.min(95, monsterAccuracy - playerEvasion));
+      const isMissedByMonster = Math.random() * 100 > monsterHitChance;
+
+      if (isMissedByMonster) {
+        results.push({ attacker: combat.monster.name, target: targetPlayer.name, type: 'monster_attack', isCritical: false, isMiss: true });
       } else {
-        const baseDamage = combat.monster.attack - targetPlayer.defense;
-        const damage = Math.max(1, baseDamage + Math.floor(Math.random() * 3)); // Add some randomness
-        targetPlayer.hp -= damage;
-        results.push({
-            attacker: combat.monster.name,
-            target: targetPlayer.name,
-            damage: damage,
-            type: 'attack'
-        });
-
-        // Check if any player is still alive
-        const alivePlayers = combat.players.filter(p => p.hp > 0);
-        if (alivePlayers.length === 0) {
-          combat.status = 'defeat';
-          results.push({ type: 'defeat' });
-          this.endCombat(userId, combat);
+        const critChanceMonster = Math.min(50, 5 + combat.monster.level * 0.5); // Base 5% crit
+        const isCriticalMonster = Math.random() * 100 < critChanceMonster;
+        
+        let defense = targetPlayer.defense;
+        if (targetPlayer.isDefending) {
+            defense *= 1.5;
         }
+        const baseDamage = combat.monster.attack - defense;
+        let damage = Math.max(1, baseDamage + Math.floor(Math.random() * 3));
+
+        if (isCriticalMonster) {
+          damage = Math.floor(damage * 1.5);
+        }
+
+        console.log(`Monster attacking ${targetPlayer.name}. Initial HP: ${targetPlayer.hp}, Damage: ${damage}`);
+        targetPlayer.hp -= damage;
+        console.log(`Monster attacking ${targetPlayer.name}. Final HP: ${targetPlayer.hp}`);
+        results.push({ attacker: combat.monster.name, target: targetPlayer.name, damage: damage, type: 'monster_attack', isCritical: isCriticalMonster, isMiss: false });
       }
 
-      if (combat.status === 'active') {
+      alivePlayers = combat.players.filter(p => p.hp > 0);
+      console.log('Alive players after monster turn:', alivePlayers.length);
+      if (alivePlayers.length === 0) {
+        console.log('All players defeated. Setting combat status to defeat.');
+        combat.status = 'defeat';
+      } else {
         combat.turn = 'player';
         combat.currentPlayerIndex = 0;
       }
     }
 
-    return { combat, results };
+    // 3. Reset Temporary Statuses for the next turn
+    for (const player of combat.players) {
+      if (player.isDefending) {
+        player.isDefending = false;
+      }
+    }
+
+    // 4. Handle End of Combat
+    console.log('Checking combat status for end of combat:', combat.status);
+    if (combat.status !== 'active') {
+      if (combat.status === 'victory') {
+        results.push({ type: 'victory' });
+      } else if (combat.status === 'defeat') {
+        results.push({ type: 'defeat' });
+      }
+      const rewards = this.endCombat(userId, combat);
+      if (rewards) {
+          results.push({ type: 'rewards', rewards: rewards });
+      }
+    }
+    console.log('Final results array before returning:', results);
+    console.log('--- executeCombatTurn end ---');
+    return { success: true, combat, results };
   }
 
-  endCombat(userId, combat = null) {
+  endCombat(userId, combat = null, isCancelled = false) {
+    console.log('Entering endCombat for combat status:', combat.status);
     if (!combat) {
       combat = this.activeCombats.get(userId);
     }
     if (!combat) return null;
+
+    // Remove combat for all participating players first
+    for (const player of combat.players) {
+      this.activeCombats.delete(player.id);
+    }
+
+    if (isCancelled) {
+      console.log('Combat cancelled.');
+      return { cancelled: true };
+    }
     
     const rewards = {
       exp: 0,
@@ -312,153 +425,94 @@ class GameEngine {
       levelUp: false
     };
 
-    // Get party plugin for party battle handling
     const partyPlugin = this.pluginManager ? this.pluginManager.getPlugin('party') : null;
     const party = combat.partyId ? (partyPlugin ? partyPlugin.parties.get(combat.partyId) : null) : null;
 
-    // Update all players' HP to match combat HP
-    for (const player of combat.players) {
-      const character = this.getCharacter(player.id);
-      if (character) {
-        character.stats.hp = Math.max(0, player.hp);
-        this.updateCharacter(player.id, character);
-      }
-    }
     if (combat.status === 'victory') {
+      console.log('Processing victory rewards.');
       const totalParticipants = combat.players.length;
-      const expPerPlayer = party && party.settings.expShare ? 
+      const expPerPlayer = (party && party.settings.expShare) || !combat.isPartyBattle ? 
         Math.floor(combat.monster.exp / totalParticipants) : 
         combat.monster.exp;
       
-      const zenyPerPlayer = party && party.settings.expShare ? 
-        Math.floor((combat.monster.zeny || Math.floor(Math.random() * 50) + 10) / totalParticipants) : 
-        (combat.monster.zeny || Math.floor(Math.random() * 50) + 10);
+      const zenyPerPlayer = (party && party.settings.expShare) || !combat.isPartyBattle ? 
+        Math.floor((combat.monster.zeny || 0) / totalParticipants) : 
+        (combat.monster.zeny || 0);
 
-      // Distribute EXP and Zeny
+      rewards.exp = expPerPlayer;
+      rewards.zeny = zenyPerPlayer;
+
       for (const player of combat.players) {
         const character = this.getCharacter(player.id);
         if (character) {
-          // Give EXP
+          character.stats.hp = Math.max(0, player.hp);
+          console.log(`Player ${character.name} initial EXP: ${character.exp}, adding ${expPerPlayer} EXP.`);
           character.exp += expPerPlayer;
+          console.log(`Player ${character.name} final EXP: ${character.exp}.`);
+          character.inventory.zeny = (character.inventory.zeny || 0) + zenyPerPlayer;
           
-          // Give Zeny
-          character.inventory.zeny += zenyPerPlayer;
-          
-          // Check for level up
+          let hasLeveledUp = false;
           while (character.exp >= character.expToNext) {
+            console.log(`Player ${character.name} leveling up! Current EXP: ${character.exp}, EXP to next: ${character.expToNext}`);
             character.exp -= character.expToNext;
             character.level++;
             character.expToNext = Math.floor(character.expToNext * 1.2);
-            
             character.stats.maxHp += 10;
             character.stats.maxSp += 5;
-            character.stats.hp = character.stats.maxHp;
-            character.stats.sp = character.stats.maxSp;
             character.statusPoints += 3;
             character.skillPoints += 1;
-            rewards.levelUp = true;
+            hasLeveledUp = true;
+          }
+          if(hasLeveledUp) {
+              character.stats.hp = character.stats.maxHp;
+              character.stats.sp = character.stats.maxSp;
+              rewards.levelUp = true;
           }
           
           this.updateCharacter(player.id, character);
         }
       }
       
-      rewards.exp = expPerPlayer;
-      rewards.zeny = zenyPerPlayer;
-
-      // Give item drops
       if (combat.monster.drops && combat.monster.drops.length > 0) {
-        if (party && party.settings.itemShare) {
-          // Random distribution for party
+          const dropRecipient = combat.isPartyBattle && party && party.settings.itemShare ?
+              combat.players[Math.floor(Math.random() * combat.players.length)] :
+              combat.players[0]; // In solo, it's just the one player
+
           for (const drop of combat.monster.drops) {
-            let dropId, baseRate, quantity = 1;
-
-            if (typeof drop === 'string') {
-              dropId = drop;
-              baseRate = 30;
-            } else {
-              dropId = drop.item;
-              baseRate = drop.rate;
-              quantity = drop.quantity || 1;
-            }
-
-            const avgLuck = combat.players.reduce((sum, p) => sum + p.luck, 0) / combat.players.length;
-            const dropRate = Math.min(100, baseRate + (avgLuck * 0.1));
-            const dropChance = Math.random() * 100;
-
-            if (dropChance < dropRate) {
-              const item = this.db.getItem(dropId);
-              if (item) {
-                // Give to random party member
-                const randomPlayer = combat.players[Math.floor(Math.random() * combat.players.length)];
-                const character = this.getCharacter(randomPlayer.id);
-                if (character) {
-                  if (!character.inventory.items[dropId]) {
-                    character.inventory.items[dropId] = 0;
-                  }
-                  character.inventory.items[dropId] += quantity;
-                  rewards.items.push({ id: dropId, name: item.name, quantity: quantity, recipient: character.name });
-                  this.updateCharacter(randomPlayer.id, character);
-                }
-              }
-            }
-          }
-        } else {
-          // Individual drops for each player or solo player
-          for (const player of combat.players) {
-            const character = this.getCharacter(player.id);
-            if (character) {
-              for (const drop of combat.monster.drops) {
-                let dropId, baseRate, quantity = 1;
-
-                if (typeof drop === 'string') {
-                  dropId = drop;
-                  baseRate = 30;
-                } else {
-                  dropId = drop.item;
-                  baseRate = drop.rate;
-                  quantity = drop.quantity || 1;
-                }
-
-                const dropRate = Math.min(100, baseRate + (character.stats.luck * 0.1));
-                const dropChance = Math.random() * 100;
-
-                if (dropChance < dropRate) {
-                  const item = this.db.getItem(dropId);
+              const dropChance = drop.chance || 0.3; // Default 30%
+              if (Math.random() < dropChance) {
+                  const item = this.db.getItem(drop.itemId);
                   if (item) {
-                    if (!character.inventory.items[dropId]) {
-                      character.inventory.items[dropId] = 0;
-                    }
-                    character.inventory.items[dropId] += quantity;
-                    rewards.items.push({ id: dropId, name: item.name, quantity: quantity, recipient: character.name });
+                      const characterToReceive = this.getCharacter(dropRecipient.id);
+                      if(characterToReceive) {
+                          if (!characterToReceive.inventory.items[drop.itemId]) {
+                              characterToReceive.inventory.items[drop.itemId] = 0;
+                          }
+                          characterToReceive.inventory.items[drop.itemId] += 1;
+                          rewards.items.push({ id: drop.itemId, name: item.name, quantity: 1, recipient: characterToReceive.name });
+                          this.updateCharacter(dropRecipient.id, characterToReceive);
+                      }
                   }
-                }
               }
-              this.updateCharacter(player.id, character);
-            }
           }
-        }
       }
 
     } else if (combat.status === 'defeat') {
-      // All players died - lose some EXP and reset HP to 1
+      console.log('Processing defeat consequences.');
+      let totalExpLoss = 0;
       for (const player of combat.players) {
         const character = this.getCharacter(player.id);
         if (character) {
-          const expLoss = Math.floor(character.exp * 0.1);
+          const expLoss = Math.floor(character.exp * 0.01); // Lose 1% exp
           character.exp = Math.max(0, character.exp - expLoss);
           character.stats.hp = 1;
           this.updateCharacter(player.id, character);
+          totalExpLoss += expLoss;
         }
       }
-      rewards.exp = -Math.floor(combat.players[0] ? this.getCharacter(combat.players[0].id).exp * 0.1 : 0);
+      rewards.exp = -totalExpLoss;
     }
-
-    // Remove combat for all participating players
-    for (const player of combat.players) {
-      this.activeCombats.delete(player.id);
-    }
-    
+    console.log('Rewards calculated:', rewards);
     return rewards;
   }
 
@@ -479,10 +533,9 @@ class GameEngine {
     return true;
   }
 
-  useItem(userId, itemId) {
+  useItem(userId, itemId, fromCombat = false) {
     const character = this.getCharacter(userId);
     const item = this.db.getItem(itemId);
-    const combat = this.getCombat(userId);
 
     if (!character || !item || !character.inventory.items[itemId] || character.inventory.items[itemId] <= 0) {
       return { success: false, message: 'Item not found or you do not have it.' };
@@ -490,29 +543,34 @@ class GameEngine {
 
     if (item.type === 'consumable' && item.effect) {
       let messageParts = [];
-      
-      // Determine the source of truth for current stats
-      const currentHp = combat ? combat.player.hp : character.stats.hp;
-      const currentSp = character.stats.sp; // Combat doesn't track SP
+      let target = character; // Default target is the character
 
-      const maxHp = character.stats.maxHp;
-      const maxSp = character.stats.maxSp;
+      if (fromCombat) {
+        const combat = this.activeCombats.get(userId);
+        if (combat) {
+          target = combat.players.find(p => p.id === userId);
+          if (!target) return { success: false, message: 'Player not in combat.' };
+        }
+      }
 
-      let finalHp = currentHp;
-      let finalSp = currentSp;
+      const maxHp = target.maxHp || character.stats.maxHp;
+      const maxSp = target.maxSp || character.stats.maxSp;
+
+      let finalHp = target.hp || character.stats.hp;
+      let finalSp = target.sp || character.stats.sp;
 
       // Apply item effects
       if (item.effect.hp) {
-        const newHp = Math.min(maxHp, currentHp + item.effect.hp);
-        const hpHealed = newHp - currentHp;
+        const newHp = Math.min(maxHp, finalHp + item.effect.hp);
+        const hpHealed = newHp - finalHp;
         if (hpHealed > 0) {
           finalHp = newHp;
           messageParts.push(`recovers ${hpHealed} HP`);
         }
       }
       if (item.effect.sp) {
-        const newSp = Math.min(maxSp, currentSp + item.effect.sp);
-        const spHealed = newSp - currentSp;
+        const newSp = Math.min(maxSp, finalSp + item.effect.sp);
+        const spHealed = newSp - finalSp;
         if (spHealed > 0) {
           finalSp = newSp;
           messageParts.push(`recovers ${spHealed} SP`);
@@ -523,9 +581,13 @@ class GameEngine {
         return { success: false, message: `You are already at full HP/SP.` };
       }
 
-      // Update the character in the database
+      // Update the character/player in combat
       character.stats.hp = finalHp;
       character.stats.sp = finalSp;
+      if (fromCombat) {
+        target.hp = finalHp;
+        target.sp = finalSp; // Update SP in combat player object
+      }
 
       // Remove item from inventory
       character.inventory.items[itemId]--;
@@ -534,12 +596,7 @@ class GameEngine {
       }
       this.updateCharacter(userId, character);
 
-      // If in combat, update the combat object as well
-      if (combat) {
-        combat.player.hp = finalHp;
-      }
-      
-      const message = `You used ${item.name} and ${messageParts.join(' and ')}.`;
+      const message = `${character.name} used ${item.name} and ${messageParts.join(' and ')}.`;
       return { success: true, message: message };
     }
 
@@ -613,6 +670,23 @@ class GameEngine {
     character.equipment[slot] = null;
     this.updateCharacter(userId, character);
     return true;
+  }
+
+  checkInactiveCombats() {
+    const now = Date.now();
+    const processedCombatIds = new Set();
+    for (const [userId, combat] of this.activeCombats.entries()) {
+      if (processedCombatIds.has(combat.id)) {
+        continue; // Already processed this combat
+      }
+      if (combat.status === 'active' && now - combat.lastActionTimestamp > 120000) { // 2 menit
+        // Iterate over all players in the combat and end combat for each of them
+        for (const player of combat.players) {
+          this.endCombat(player.id, combat, true); // Batalkan pertarungan
+        }
+      }
+      processedCombatIds.add(combat.id);
+    }
   }
 
   generateMapView(userId, radius = 3) {

@@ -1,19 +1,19 @@
 {
-  "party_359d5a55": {
-    "id": "party_359d5a55",
-    "name": "GB EXP",
+  "party_049fe14f": {
+    "id": "party_049fe14f",
+    "name": "TES GB",
     "leader": 948962959,
     "members": [
       948962959,
       7298873273
     ],
-    "created": 1752755679746,
-    "description": "GB EXP - A new party ready for adventure!",
+    "created": 1752823924303,
+    "description": "TES GB - A new party ready for adventure!",
     "settings": {
       "expShare": true,
       "itemShare": false,
       "maxMembers": 4,
-      "afk": false
+      "afk": true
     },
     "stats": {
       "dungeonsCleared": 0,
