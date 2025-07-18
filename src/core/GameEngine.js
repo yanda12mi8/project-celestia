@@ -479,19 +479,12 @@ class GameEngine {
               combat.players[0]; // In solo, it's just the one player
 
           for (const drop of combat.monster.drops) {
-              const dropChance = drop.chance || 0.3; // Default 30%
+              const dropChance = drop.rate / 100; // Convert rate to a decimal probability
               if (Math.random() < dropChance) {
                   const item = this.db.getItem(drop.itemId);
                   if (item) {
-                      const characterToReceive = this.getCharacter(dropRecipient.id);
-                      if(characterToReceive) {
-                          if (!characterToReceive.inventory.items[drop.itemId]) {
-                              characterToReceive.inventory.items[drop.itemId] = 0;
-                          }
-                          characterToReceive.inventory.items[drop.itemId] += 1;
-                          rewards.items.push({ id: drop.itemId, name: item.name, quantity: 1, recipient: characterToReceive.name });
-                          this.updateCharacter(dropRecipient.id, characterToReceive);
-                      }
+                      this.addItemToInventory(dropRecipient.id, drop.itemId, 1);
+                      rewards.items.push({ name: item.name, quantity: 1, recipient: this.getCharacter(dropRecipient.id).name });
                   }
               }
           }

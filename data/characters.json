@@ -3,14 +3,14 @@
     "id": 948962959,
     "name": "xBoii",
     "class": "novice",
-    "level": 10,
-    "exp": 438,
-    "expToNext": 512,
+    "level": 11,
+    "exp": 285,
+    "expToNext": 614,
     "stats": {
-      "hp": 198,
-      "maxHp": 220,
-      "sp": 95,
-      "maxSp": 95,
+      "hp": 210,
+      "maxHp": 230,
+      "sp": 100,
+      "maxSp": 100,
       "attack": 42,
       "defense": 25,
       "agility": 10,
@@ -18,20 +18,20 @@
       "vitality": 17,
       "luck": 15
     },
-    "statusPoints": 6,
-    "skillPoints": 5,
+    "statusPoints": 9,
+    "skillPoints": 6,
     "inventory": {
       "items": {
         "leather": 1,
         "jellopy": 24,
-        "red_potion": 18,
+        "red_potion": 17,
         "zeny_pouch": 5,
         "yellow_potion": 10,
         "goblin_dagger": 1,
         "apple": 2,
         "leather_boots": 2
       },
-      "zeny": 10483
+      "zeny": 11017
     },
     "equipment": {
       "weapon": "iron_sword",
@@ -56,16 +56,16 @@
     "name": "HERO",
     "class": "novice",
     "level": 2,
-    "exp": 23,
+    "exp": 82,
     "expToNext": 120,
     "stats": {
-      "hp": 95,
+      "hp": 77,
       "maxHp": 110,
       "sp": 55,
       "maxSp": 55,
       "attack": 10,
-      "defense": 5,
-      "agility": 10,
+      "defense": 8,
+      "agility": 12,
       "intelligence": 10,
       "vitality": 10,
       "luck": 10
@@ -76,15 +76,15 @@
       "items": {
         "jellopy": 2,
         "zeny_pouch": 1,
-        "leather_boots": 2,
-        "red_potion": 2,
+        "leather_boots": 1,
+        "red_potion": 1,
         "apple": 1
       },
-      "zeny": 1188
+      "zeny": 1282
     },
     "equipment": {
       "weapon": null,
-      "armor": null,
+      "armor": "leather_boots",
       "accessory": null
     },
     "position": {

@@ -265,6 +265,7 @@ class CombatPlugin {
         message += `You lost some experience and were revived with 1 HP...`;
       } else if (res.type === 'rewards') {
         const rewards = res.rewards;
+        console.log('Rewards items before message construction:', rewards.items);
         if (rewards.exp > 0) {
           message += `✨ ${combat.isPartyBattle ? 'Each member gained' : 'Gained'} ${rewards.exp} EXP!\n`;
         } else if (rewards.exp < 0) {
@@ -281,6 +282,10 @@ class CombatPlugin {
             const recipient = item.recipient ? ` (${item.recipient})` : '';
             message += `• ${item.name} x${item.quantity}${recipient}\n`;
           }
+        } else {
+          message += `
+No items obtained.
+`;
         }
         
         if (rewards.levelUp) {

@@ -31,6 +31,8 @@ describe('Combat System', () => {
       getItem: jest.fn((itemId) => {
         if (itemId === 'potion') {
           return { id: 'potion', name: 'Health Potion', type: 'consumable', effect: { hp: 20 } };
+        } else if (itemId === 'goblin_ear') {
+          return { id: 'goblin_ear', name: 'Goblin Ear', type: 'material' };
         }
         return null;
       })
@@ -302,7 +304,8 @@ describe('Combat System', () => {
     
       const combat = gameEngine.startCombat(userId, monsterId);
       combat.monster.hp = 1; // Ensure victory in one hit
-    
+      jest.spyOn(global.Math, 'random').mockReturnValue(0.1); // Ensure player hits
+
       const finalResult = gameEngine.registerPlayerAction(userId, 'attack');
     
       expect(finalResult.results.some(r => r.type === 'victory')).toBe(true);
@@ -319,7 +322,7 @@ describe('Combat System', () => {
       // Mock monster with drops
       mockDb.getMonster.mockImplementation((mId) => {
           if (mId === 'goblin') {
-              return { id: 'goblin', name: 'Goblin', hp: 1, maxHp: 50, attack: 7, defense: 3, level: 1, exp: 20, zeny: 5, drops: [{ itemId: 'goblin_ear', chance: 1.0 }] }; // 100% chance for test
+              return { id: 'goblin', name: 'Goblin', hp: 1, maxHp: 50, attack: 7, defense: 3, level: 1, exp: 20, zeny: 5, drops: [{ itemId: 'goblin_ear', rate: 100 }] }; // 100% rate for test
           }
           return null;
       });
@@ -334,8 +337,15 @@ describe('Combat System', () => {
   
       const combat = gameEngine.startCombat(userId, monsterId);
       combat.monster.hp = 1; // Ensure victory
-      jest.spyOn(global.Math, 'random').mockReturnValue(0.1); // Ensure player hits and drop chance succeeds
 
+      let randomCallCount = 0;
+      jest.spyOn(global.Math, 'random').mockImplementation(() => {
+        randomCallCount++;
+        if (randomCallCount === 1) return 0.1; // Player hits
+        if (randomCallCount === 2) return 0.01; // Item drop succeeds
+        return 0.5; // Default for other random calls
+      });
+  
       const finalResult = gameEngine.registerPlayerAction(userId, 'attack');
   
       expect(finalResult.results.some(r => r.type === 'victory')).toBe(true);
@@ -570,10 +580,15 @@ describe('Combat System', () => {
 
       // Mock Math.random to ensure monster critical hit
       jest.spyOn(global.Math, 'random')
-        .mockReturnValueOnce(0.1) // Player 1 hits
-        .mockReturnValueOnce(0.1) // Player 2 hits
-        .mockReturnValueOnce(0.1) // Monster hits
-        .mockReturnValueOnce(0.01); // Monster crits
+        .mockReturnValueOnce(0.1) // Player 1 hits (for isMiss)
+        .mockReturnValueOnce(0.9) // Player 1 no crit (for isCritical)
+        .mockReturnValueOnce(0.5) // Player 1 damage variance
+        .mockReturnValueOnce(0.1) // Player 2 hits (for isMiss)
+        .mockReturnValueOnce(0.9) // Player 2 no crit (for isCritical)
+        .mockReturnValueOnce(0.5) // Player 2 damage variance
+        .mockReturnValueOnce(0.1) // Monster hits (for isMissedByMonster)
+        .mockReturnValueOnce(0.01) // Monster crits (for isCriticalMonster)
+        .mockReturnValueOnce(0.5); // Monster damage variance
 
       gameEngine.registerPlayerAction(userId1, 'attack');
       const result = gameEngine.registerPlayerAction(userId2, 'attack');
@@ -718,7 +733,7 @@ describe('Combat System', () => {
       const monsterId = 'goblin';
       mockDb.getMonster.mockImplementation((mId) => {
         if (mId === 'goblin') {
-          return { id: 'goblin', name: 'Goblin', hp: 50, maxHp: 50, attack: 7, defense: 3, level: 1, exp: 20, zeny: 5, drops: [{ itemId: 'goblin_ear', chance: 1.0 }] }; // 100% chance for test
+          return { id: 'goblin', name: 'Goblin', hp: 50, maxHp: 50, attack: 7, defense: 3, level: 1, exp: 20, zeny: 5, drops: [{ itemId: 'goblin_ear', rate: 100 }] }; // 100% rate for test
         }
         return null;
       });
@@ -730,6 +745,7 @@ describe('Combat System', () => {
   
       const combat = gameEngine.startCombat(userId1, monsterId);
       combat.monster.hp = 1; // Ensure victory
+      jest.spyOn(global.Math, 'random').mockReturnValue(0.01); // Ensure player hits and drop happens
   
       gameEngine.registerPlayerAction(userId1, 'attack');
       const finalResult = gameEngine.registerPlayerAction(userId2, 'attack');
