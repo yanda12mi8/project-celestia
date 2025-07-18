@@ -144,16 +144,36 @@ class GameEngine {
     
     if (!character || !monsterData) return null;
 
+    // Check if player is in a party and party battle is enabled
+    const partyPlugin = this.pluginManager ? this.pluginManager.getPlugin('party') : null;
+    const party = partyPlugin ? partyPlugin.getPlayerParty(userId) : null;
+    const isPartyBattle = party && !party.settings.afk;
+
+    let partyMembers = [userId];
+    if (isPartyBattle) {
+      // Get all party members in the same map
+      partyMembers = party.members.filter(memberId => {
+        const memberChar = this.getCharacter(memberId);
+        return memberChar && memberChar.position.map === character.position.map;
+      });
+    }
     const combat = {
       id: `${userId}_${Date.now()}`,
-      player: {
-        id: userId,
-        name: character.name,
-        hp: character.stats.hp,
-        maxHp: character.stats.maxHp,
-        attack: character.stats.attack,
-        defense: character.stats.defense
-      },
+      isPartyBattle: isPartyBattle,
+      partyId: party ? party.id : null,
+      players: partyMembers.map(memberId => {
+        const memberChar = this.getCharacter(memberId);
+        return {
+          id: memberId,
+          name: memberChar.name,
+          hp: memberChar.stats.hp,
+          maxHp: memberChar.stats.maxHp,
+          attack: memberChar.stats.attack,
+          defense: memberChar.stats.defense,
+          agility: memberChar.stats.agility,
+          luck: memberChar.stats.luck
+        };
+      }),
       monster: {
         id: monsterId,
         name: monsterData.name,
@@ -167,10 +187,15 @@ class GameEngine {
         zeny: monsterData.zeny || 0
       },
       turn: 'player',
-      status: 'active'
+      status: 'active',
+      currentPlayerIndex: 0
     };
 
-    this.activeCombats.set(userId, combat);
+    // Set combat for all participating players
+    for (const memberId of partyMembers) {
+      this.activeCombats.set(memberId, combat);
+    }
+    
     return combat;
   }
 
@@ -178,16 +203,25 @@ class GameEngine {
     const combat = this.activeCombats.get(userId);
     if (!combat || combat.status !== 'active') return null;
 
-    const character = this.getCharacter(userId);
-    if (!character) return null;
+    // For party battles, only the current player can act
+    if (combat.isPartyBattle) {
+      const currentPlayer = combat.players[combat.currentPlayerIndex];
+      if (currentPlayer.id !== userId) {
+        return { error: 'Not your turn!' };
+      }
+    }
 
     const results = [];
 
     if (combat.turn === 'player') {
+      const currentPlayer = combat.isPartyBattle ? 
+        combat.players[combat.currentPlayerIndex] : 
+        combat.players[0];
+      
       // Player attack
-      const critChance = Math.min(50, character.stats.luck * 0.5); // 0.5% crit chance per LUK point, max 50%
+      const critChance = Math.min(50, currentPlayer.luck * 0.5);
       const isCritical = Math.random() * 100 < critChance;
-      const baseDamage = combat.player.attack - combat.monster.defense;
+      const baseDamage = currentPlayer.attack - combat.monster.defense;
       let damage = Math.max(1, baseDamage + Math.floor(Math.random() * 5)); // Add some randomness
       
       if (isCritical) {
@@ -196,7 +230,7 @@ class GameEngine {
 
       combat.monster.hp -= damage;
       results.push({
-        attacker: combat.player.name,
+        attacker: currentPlayer.name,
         target: combat.monster.name,
         damage: damage,
         type: isCritical ? 'critical' : 'attack'
@@ -205,59 +239,71 @@ class GameEngine {
       if (combat.monster.hp <= 0) {
         combat.status = 'victory';
         results.push({ type: 'victory' });
-        const rewards = this.endCombat(userId);
+        const rewards = this.endCombat(userId, combat);
         results.push({ type: 'rewards', rewards: rewards });
       } else {
-        combat.turn = 'monster';
+        if (combat.isPartyBattle) {
+          // Move to next player or monster turn
+          combat.currentPlayerIndex++;
+          if (combat.currentPlayerIndex >= combat.players.length) {
+            combat.currentPlayerIndex = 0;
+            combat.turn = 'monster';
+          }
+        } else {
+          combat.turn = 'monster';
+        }
       }
     }
 
     if (combat.turn === 'monster' && combat.status === 'active') {
-      // Monster attack
-      const evasionChance = Math.min(75, character.stats.agility * 0.2); // 0.2% evasion per AGI point, max 75%
+      // Monster attacks random player in party battle, or the single player
+      const targetPlayer = combat.isPartyBattle ? 
+        combat.players[Math.floor(Math.random() * combat.players.length)] :
+        combat.players[0];
+      
+      const evasionChance = Math.min(75, targetPlayer.agility * 0.2);
       const isEvaded = Math.random() * 100 < evasionChance;
 
       if (isEvaded) {
         results.push({
             attacker: combat.monster.name,
-            target: combat.player.name,
+            target: targetPlayer.name,
             type: 'evade'
         });
       } else {
-        const baseDamage = combat.monster.attack - combat.player.defense;
+        const baseDamage = combat.monster.attack - targetPlayer.defense;
         const damage = Math.max(1, baseDamage + Math.floor(Math.random() * 3)); // Add some randomness
-        combat.player.hp -= damage;
+        targetPlayer.hp -= damage;
         results.push({
             attacker: combat.monster.name,
-            target: combat.player.name,
+            target: targetPlayer.name,
             damage: damage,
             type: 'attack'
         });
 
-        if (combat.player.hp <= 0) {
-            combat.status = 'defeat';
-            results.push({ type: 'defeat' });
-            this.endCombat(userId);
+        // Check if any player is still alive
+        const alivePlayers = combat.players.filter(p => p.hp > 0);
+        if (alivePlayers.length === 0) {
+          combat.status = 'defeat';
+          results.push({ type: 'defeat' });
+          this.endCombat(userId, combat);
         }
       }
 
       if (combat.status === 'active') {
         combat.turn = 'player';
+        combat.currentPlayerIndex = 0;
       }
     }
 
     return { combat, results };
   }
 
-  endCombat(userId) {
-    const combat = this.activeCombats.get(userId);
+  endCombat(userId, combat = null) {
+    if (!combat) {
+      combat = this.activeCombats.get(userId);
+    }
     if (!combat) return null;
-    
-    const character = this.getCharacter(userId);
-    if (!character) return null;
-    
-    // Update player HP to match combat HP
-    character.stats.hp = Math.max(0, combat.player.hp);
     
     const rewards = {
       exp: 0,
@@ -266,77 +312,153 @@ class GameEngine {
       levelUp: false
     };
 
-    if (combat.status === 'victory') {
+    // Get party plugin for party battle handling
+    const partyPlugin = this.pluginManager ? this.pluginManager.getPlugin('party') : null;
+    const party = combat.partyId ? (partyPlugin ? partyPlugin.parties.get(combat.partyId) : null) : null;
 
-      // Give EXP
-      const expGained = combat.monster.exp;
-      character.exp += expGained;
-      rewards.exp = expGained;
+    // Update all players' HP to match combat HP
+    for (const player of combat.players) {
+      const character = this.getCharacter(player.id);
+      if (character) {
+        character.stats.hp = Math.max(0, player.hp);
+        this.updateCharacter(player.id, character);
+      }
+    }
+    if (combat.status === 'victory') {
+      const totalParticipants = combat.players.length;
+      const expPerPlayer = party && party.settings.expShare ? 
+        Math.floor(combat.monster.exp / totalParticipants) : 
+        combat.monster.exp;
       
-      // Give Zeny
-      const zenyGained = combat.monster.zeny || Math.floor(Math.random() * 50) + 10;
-      character.inventory.zeny += zenyGained;
-      rewards.zeny = zenyGained;
+      const zenyPerPlayer = party && party.settings.expShare ? 
+        Math.floor((combat.monster.zeny || Math.floor(Math.random() * 50) + 10) / totalParticipants) : 
+        (combat.monster.zeny || Math.floor(Math.random() * 50) + 10);
+
+      // Distribute EXP and Zeny
+      for (const player of combat.players) {
+        const character = this.getCharacter(player.id);
+        if (character) {
+          // Give EXP
+          character.exp += expPerPlayer;
+          
+          // Give Zeny
+          character.inventory.zeny += zenyPerPlayer;
+          
+          // Check for level up
+          while (character.exp >= character.expToNext) {
+            character.exp -= character.expToNext;
+            character.level++;
+            character.expToNext = Math.floor(character.expToNext * 1.2);
+            
+            character.stats.maxHp += 10;
+            character.stats.maxSp += 5;
+            character.stats.hp = character.stats.maxHp;
+            character.stats.sp = character.stats.maxSp;
+            character.statusPoints += 3;
+            character.skillPoints += 1;
+            rewards.levelUp = true;
+          }
+          
+          this.updateCharacter(player.id, character);
+        }
+      }
+      
+      rewards.exp = expPerPlayer;
+      rewards.zeny = zenyPerPlayer;
 
       // Give item drops
       if (combat.monster.drops && combat.monster.drops.length > 0) {
-        // Check each possible drop with individual drop rates
-        for (const drop of combat.monster.drops) {
-          let dropId, baseRate, quantity = 1;
+        if (party && party.settings.itemShare) {
+          // Random distribution for party
+          for (const drop of combat.monster.drops) {
+            let dropId, baseRate, quantity = 1;
 
-          // Handle both old format (string) and new format (object)
-          if (typeof drop === 'string') {
-            dropId = drop;
-            baseRate = 30; // Default 30% for old format
-          } else {
-            dropId = drop.item;
-            baseRate = drop.rate;
-            quantity = drop.quantity || 1;
-          }
+            if (typeof drop === 'string') {
+              dropId = drop;
+              baseRate = 30;
+            } else {
+              dropId = drop.item;
+              baseRate = drop.rate;
+              quantity = drop.quantity || 1;
+            }
 
-          // LUK increases drop rate by a small amount (e.g., 0.1% per LUK point)
-          const dropRate = Math.min(100, baseRate + (character.stats.luck * 0.1));
-          const dropChance = Math.random() * 100;
+            const avgLuck = combat.players.reduce((sum, p) => sum + p.luck, 0) / combat.players.length;
+            const dropRate = Math.min(100, baseRate + (avgLuck * 0.1));
+            const dropChance = Math.random() * 100;
 
-          if (dropChance < dropRate) {
-            const item = this.db.getItem(dropId);
-            if (item) {
-              if (!character.inventory.items[dropId]) {
-                character.inventory.items[dropId] = 0;
+            if (dropChance < dropRate) {
+              const item = this.db.getItem(dropId);
+              if (item) {
+                // Give to random party member
+                const randomPlayer = combat.players[Math.floor(Math.random() * combat.players.length)];
+                const character = this.getCharacter(randomPlayer.id);
+                if (character) {
+                  if (!character.inventory.items[dropId]) {
+                    character.inventory.items[dropId] = 0;
+                  }
+                  character.inventory.items[dropId] += quantity;
+                  rewards.items.push({ id: dropId, name: item.name, quantity: quantity, recipient: character.name });
+                  this.updateCharacter(randomPlayer.id, character);
+                }
               }
-              character.inventory.items[dropId] += quantity;
-              rewards.items.push({ id: dropId, name: item.name, quantity: quantity });
+            }
+          }
+        } else {
+          // Individual drops for each player or solo player
+          for (const player of combat.players) {
+            const character = this.getCharacter(player.id);
+            if (character) {
+              for (const drop of combat.monster.drops) {
+                let dropId, baseRate, quantity = 1;
+
+                if (typeof drop === 'string') {
+                  dropId = drop;
+                  baseRate = 30;
+                } else {
+                  dropId = drop.item;
+                  baseRate = drop.rate;
+                  quantity = drop.quantity || 1;
+                }
+
+                const dropRate = Math.min(100, baseRate + (character.stats.luck * 0.1));
+                const dropChance = Math.random() * 100;
+
+                if (dropChance < dropRate) {
+                  const item = this.db.getItem(dropId);
+                  if (item) {
+                    if (!character.inventory.items[dropId]) {
+                      character.inventory.items[dropId] = 0;
+                    }
+                    character.inventory.items[dropId] += quantity;
+                    rewards.items.push({ id: dropId, name: item.name, quantity: quantity, recipient: character.name });
+                  }
+                }
+              }
+              this.updateCharacter(player.id, character);
             }
           }
         }
       }
 
-      // Check for level up
-      const oldLevel = character.level;
-      while (character.exp >= character.expToNext) {
-        character.exp -= character.expToNext;
-        character.level++;
-        character.expToNext = Math.floor(character.expToNext * 1.2);
-        
-        character.stats.maxHp += 10;
-        character.stats.maxSp += 5;
-        character.stats.hp = character.stats.maxHp; // Full heal on level up
-        character.stats.sp = character.stats.maxSp;
-        character.statusPoints += 3;
-        character.skillPoints += 1;
-        rewards.levelUp = true;
-      }
     } else if (combat.status === 'defeat') {
-      // Player died - lose some EXP and reset HP to 1
-      const expLoss = Math.floor(character.exp * 0.1); // Lose 10% EXP
-      character.exp = Math.max(0, character.exp - expLoss);
-      character.stats.hp = 1; // Revive with 1 HP
-      rewards.exp = -expLoss;
+      // All players died - lose some EXP and reset HP to 1
+      for (const player of combat.players) {
+        const character = this.getCharacter(player.id);
+        if (character) {
+          const expLoss = Math.floor(character.exp * 0.1);
+          character.exp = Math.max(0, character.exp - expLoss);
+          character.stats.hp = 1;
+          this.updateCharacter(player.id, character);
+        }
+      }
+      rewards.exp = -Math.floor(combat.players[0] ? this.getCharacter(combat.players[0].id).exp * 0.1 : 0);
     }
 
-    this.updateCharacter(userId, character);
-
-    this.activeCombats.delete(userId);
+    // Remove combat for all participating players
+    for (const player of combat.players) {
+      this.activeCombats.delete(player.id);
+    }
+    
     return rewards;
   }
 

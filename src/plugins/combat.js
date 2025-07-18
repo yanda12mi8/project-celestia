@@ -116,6 +116,25 @@ class CombatPlugin {
       return;
     }
 
+    let playersInfo = '';
+    if (combat.isPartyBattle) {
+      playersInfo = `👥 *Party Battle*\n\n`;
+      for (let i = 0; i < combat.players.length; i++) {
+        const player = combat.players[i];
+        const isCurrentTurn = combat.turn === 'player' && combat.currentPlayerIndex === i;
+        const turnIndicator = isCurrentTurn ? '🎯 ' : '';
+        const playerHpBar = this.createHealthBar(player.hp, player.maxHp);
+        playersInfo += `${turnIndicator}👤 *${player.name}*\n`;
+        playersInfo += `❤️ HP: ${playerHpBar} ${player.hp}/${player.maxHp}\n\n`;
+      }
+    } else {
+      const player = combat.players[0];
+      const playerHpBar = this.createHealthBar(player.hp, player.maxHp);
+      playersInfo = `👤 *${player.name}*\n`;
+      playersInfo += `❤️ HP: ${playerHpBar} ${player.hp}/${player.maxHp}\n`;
+      playersInfo += `⚔️ Attack: ${player.attack}\n`;
+      playersInfo += `🛡️ Defense: ${player.defense}\n\n`;
+    }
     const keyboard = {
       inline_keyboard: [
         [
@@ -129,22 +148,26 @@ class CombatPlugin {
       ]
     };
 
-    const playerHpBar = this.createHealthBar(combat.player.hp, combat.player.maxHp);
     const monsterHpBar = this.createHealthBar(combat.monster.hp, combat.monster.maxHp);
 
+    const currentTurnText = combat.turn === 'player' ? 
+      (combat.isPartyBattle ? 
+        `${combat.players[combat.currentPlayerIndex].name}'s turn!` : 
+        'Your turn!') : 
+      'Monster\'s turn';
+
+    const canAct = combat.turn === 'player' && 
+      (!combat.isPartyBattle || combat.players[combat.currentPlayerIndex].id === userId);
     await this.bot.sendMessage(chatId,
       `⚔️ *Combat Status*\n\n` +
-      `👤 *${combat.player.name}*\n` +
-      `❤️ HP: ${playerHpBar} ${combat.player.hp}/${combat.player.maxHp}\n` +
-      `⚔️ Attack: ${combat.player.attack}\n` +
-      `🛡️ Defense: ${combat.player.defense}\n\n` +
+      playersInfo +
       `👹 *${combat.monster.name}*\n` +
       `❤️ HP: ${monsterHpBar} ${combat.monster.hp}/${combat.monster.maxHp}\n` +
       `⚔️ Attack: ${combat.monster.attack}\n` +
       `🛡️ Defense: ${combat.monster.defense}\n\n` +
-      `🎯 Turn: ${combat.turn === 'player' ? 'Your turn!' : 'Monster\'s turn'}\n\n` +
-      `${combat.turn === 'player' ? 'Choose your action:' : 'Waiting for monster...'}`,
-      { parse_mode: 'Markdown', reply_markup: combat.turn === 'player' ? keyboard : undefined }
+      `🎯 Turn: ${currentTurnText}\n\n` +
+      `${canAct ? 'Choose your action:' : 'Waiting...'}`,
+      { parse_mode: 'Markdown', reply_markup: canAct ? keyboard : undefined }
     );
   }
 
@@ -158,7 +181,12 @@ class CombatPlugin {
   }
 
   async processCombatResult(chatId, userId, result) {
-    const { combat, results } = result;
+    const { combat, results, error } = result;
+    
+    if (error) {
+      await this.bot.sendMessage(chatId, `❌ ${error}`);
+      return;
+    }
     
     let message = '⚔️ *Combat Round*\n\n';
     
@@ -170,43 +198,69 @@ class CombatPlugin {
       } else if (res.type === 'evade') {
         message += `💨 ${res.target} evaded the attack from ${res.attacker}!\n`;
       } else if (res.type === 'victory') {
-        message += `\n🎉 *Victory!*\n`;
+        message += `\n🎉 *${combat.isPartyBattle ? 'Party Victory!' : 'Victory!'}*\n`;
         message += `You defeated the ${combat.monster.name}!\n`;
       } else if (res.type === 'defeat') {
-        message += `\n💀 *Defeat!*\n`;
+        message += `\n💀 *${combat.isPartyBattle ? 'Party Defeat!' : 'Defeat!'}*\n`;
         message += `You were defeated by the ${combat.monster.name}!\n`;
         message += `You lost some experience and were revived with 1 HP...`;
       } else if (res.type === 'rewards') {
         const rewards = res.rewards;
         if (rewards.exp > 0) {
-          message += `✨ Gained ${rewards.exp} EXP!\n`;
+          message += `✨ ${combat.isPartyBattle ? 'Each member gained' : 'Gained'} ${rewards.exp} EXP!\n`;
         } else if (rewards.exp < 0) {
           message += `💀 Lost ${Math.abs(rewards.exp)} EXP!\n`;
         }
         
         if (rewards.zeny > 0) {
-          message += `💰 Found ${rewards.zeny} Zeny!\n`;
+          message += `💰 ${combat.isPartyBattle ? 'Each member found' : 'Found'} ${rewards.zeny} Zeny!\n`;
         }
         
         if (rewards.items.length > 0) {
           message += `🎁 *Items obtained:*\n`;
           for (const item of rewards.items) {
-            message += `• ${item.name} x${item.quantity}\n`;
+            const recipient = item.recipient ? ` (${item.recipient})` : '';
+            message += `• ${item.name} x${item.quantity}${recipient}\n`;
           }
         }
         
         if (rewards.levelUp) {
-          message += `\n🎉 *LEVEL UP!* You are now stronger!\n`;
+          message += `\n🎉 *LEVEL UP!* ${combat.isPartyBattle ? 'Party members are' : 'You are'} now stronger!\n`;
         }
       }
     }
 
     await this.bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });
 
+    // Notify all party members if it's a party battle
+    if (combat.isPartyBattle) {
+      const partyPlugin = this.gameEngine.pluginManager.getPlugin('party');
+      if (partyPlugin) {
+        const party = partyPlugin.parties.get(combat.partyId);
+        if (party) {
+          for (const memberId of party.members) {
+            if (memberId !== userId) {
+              try {
+                await this.bot.sendMessage(memberId, message, { parse_mode: 'Markdown' });
+              } catch (error) {
+                console.log(`Failed to notify party member ${memberId}`);
+              }
+            }
+          }
+        }
+      }
+    }
     if (combat.status === 'active') {
       // Show updated combat status
       setTimeout(() => {
-        this.showCombatStatus(chatId, userId);
+        // Show combat status to all party members
+        if (combat.isPartyBattle) {
+          for (const player of combat.players) {
+            this.showCombatStatus(chatId, player.id);
+          }
+        } else {
+          this.showCombatStatus(chatId, userId);
+        }
       }, 2000);
     }
   }
@@ -246,6 +300,10 @@ class CombatPlugin {
       const result = this.gameEngine.performAttack(userId);
       
       if (result) {
+        if (result.error) {
+          await this.bot.sendMessage(callbackQuery.message.chat.id, `❌ ${result.error}`);
+          return true;
+        }
         await this.processCombatResult(callbackQuery.message.chat.id, userId, result);
       } else {
         await this.bot.sendMessage(callbackQuery.message.chat.id, '❌ Failed to attack!');
@@ -257,16 +315,32 @@ class CombatPlugin {
       await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Defending...' });
       const combat = this.gameEngine.getCombat(userId);
       
-      if (combat && combat.turn === 'player') {
+      const canDefend = combat && combat.turn === 'player' && 
+        (!combat.isPartyBattle || combat.players[combat.currentPlayerIndex].id === userId);
+      
+      if (canDefend) {
+        const currentPlayer = combat.isPartyBattle ? 
+          combat.players[combat.currentPlayerIndex] : 
+          combat.players[0];
+          
         // Defending reduces incoming damage by 50%
-        combat.player.defense *= 1.5;
-        combat.turn = 'monster';
+        currentPlayer.defense *= 1.5;
+        
+        if (combat.isPartyBattle) {
+          combat.currentPlayerIndex++;
+          if (combat.currentPlayerIndex >= combat.players.length) {
+            combat.currentPlayerIndex = 0;
+            combat.turn = 'monster';
+          }
+        } else {
+          combat.turn = 'monster';
+        }
         
         // Monster's turn
         const result = this.gameEngine.performAttack(userId);
         if (result) {
           // Reset defense
-          combat.player.defense /= 1.5;
+          currentPlayer.defense /= 1.5;
           await this.processCombatResult(callbackQuery.message.chat.id, userId, result);
         }
       } else {
@@ -344,6 +418,15 @@ class CombatPlugin {
 
     if (data === 'combat_run') {
       await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Attempting to run...' });
+      const combat = this.gameEngine.getCombat(userId);
+      
+      if (combat && combat.isPartyBattle) {
+        await this.bot.sendMessage(callbackQuery.message.chat.id,
+          `❌ Cannot run from party battle! All party members must agree to retreat.`
+        );
+        return true;
+      }
+      
       const runChance = Math.random();
       
       if (runChance < 0.7) {

@@ -185,11 +185,36 @@ class MapPlugin {
     
     if (!map.monsters || map.monsters.length === 0) return;
 
+    // Check if player is in combat
+    if (this.gameEngine.getCombat(userId)) {
+      return; // Don't trigger new encounters if already in combat
+    }
     const randomMonster = map.monsters[Math.floor(Math.random() * map.monsters.length)];
     const monster = this.db.getMonster(randomMonster);
     
     if (!monster) return;
 
+    // Check if player is in a party for party battle notification
+    const partyPlugin = this.gameEngine.pluginManager.getPlugin('party');
+    const party = partyPlugin ? partyPlugin.getPlayerParty(userId) : null;
+    const isPartyBattle = party && !party.settings.afk;
+    
+    let encounterMessage = `🎯 *Wild Encounter!*\n\n`;
+    encounterMessage += `A wild ${monster.name} (Level ${monster.level}) appears!\n\n`;
+    encounterMessage += `💀 HP: ${monster.hp}\n`;
+    encounterMessage += `⚔️ Attack: ${monster.attack}\n`;
+    encounterMessage += `🛡️ Defense: ${monster.defense}\n`;
+    encounterMessage += `✨ EXP Reward: ${monster.exp}\n\n`;
+    
+    if (isPartyBattle) {
+      const partyMembers = party.members.filter(memberId => {
+        const memberChar = this.gameEngine.getCharacter(memberId);
+        return memberChar && memberChar.position.map === character.position.map;
+      });
+      encounterMessage += `👥 *Party Battle!* (${partyMembers.length} members)\n\n`;
+    }
+    
+    encounterMessage += `What do you want to do?`;
     const keyboard = {
       inline_keyboard: [
         [
@@ -199,16 +224,29 @@ class MapPlugin {
       ]
     };
 
-    await this.bot.sendMessage(chatId,
-      `🎯 *Wild Encounter!*\n\n` +
-      `A wild ${monster.name} (Level ${monster.level}) appears!\n\n` +
-      `💀 HP: ${monster.hp}\n` +
-      `⚔️ Attack: ${monster.attack}\n` +
-      `🛡️ Defense: ${monster.defense}\n` +
-      `✨ EXP Reward: ${monster.exp}\n\n` +
-      `What do you want to do?`,
-      { parse_mode: 'Markdown', reply_markup: keyboard }
-    );
+    await this.bot.sendMessage(chatId, encounterMessage, {
+      parse_mode: 'Markdown', 
+      reply_markup: keyboard 
+    });
+    
+    // Notify party members about the encounter
+    if (isPartyBattle && partyPlugin) {
+      const partyMembers = party.members.filter(memberId => {
+        const memberChar = this.gameEngine.getCharacter(memberId);
+        return memberChar && memberChar.position.map === character.position.map && memberId !== userId;
+      });
+      
+      for (const memberId of partyMembers) {
+        try {
+          await this.bot.sendMessage(memberId, 
+            `👥 *Party Encounter!*\n\n${character.name} encountered a ${monster.name}!\nPrepare for party battle!`,
+            { parse_mode: 'Markdown' }
+          );
+        } catch (error) {
+          console.log(`Failed to notify party member ${memberId}`);
+        }
+      }
+    }
   }
 
   async handleCallback(callbackQuery) {
