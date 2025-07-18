@@ -4,7 +4,7 @@
     "name": "xBoii",
     "class": "novice",
     "level": 9,
-    "exp": 326,
+    "exp": 333,
     "expToNext": 427,
     "stats": {
       "hp": 197,
@@ -23,7 +23,7 @@
     "inventory": {
       "items": {
         "leather": 1,
-        "jellopy": 21,
+        "jellopy": 22,
         "red_potion": 17,
         "zeny_pouch": 4,
         "yellow_potion": 10,
@@ -31,7 +31,7 @@
         "apple": 1,
         "leather_boots": 1
       },
-      "zeny": 9679
+      "zeny": 9691
     },
     "equipment": {
       "weapon": "iron_sword",
@@ -55,14 +55,14 @@
     "id": 7298873273,
     "name": "HERO",
     "class": "novice",
-    "level": 1,
-    "exp": 94,
-    "expToNext": 100,
+    "level": 2,
+    "exp": 1,
+    "expToNext": 120,
     "stats": {
-      "hp": 42,
-      "maxHp": 100,
-      "sp": 50,
-      "maxSp": 50,
+      "hp": 110,
+      "maxHp": 110,
+      "sp": 55,
+      "maxSp": 55,
       "attack": 10,
       "defense": 5,
       "agility": 10,
@@ -70,8 +70,8 @@
       "vitality": 10,
       "luck": 10
     },
-    "statusPoints": 0,
-    "skillPoints": 0,
+    "statusPoints": 3,
+    "skillPoints": 1,
     "inventory": {
       "items": {
         "jellopy": 2,
@@ -80,7 +80,7 @@
         "red_potion": 2,
         "apple": 1
       },
-      "zeny": 1144
+      "zeny": 1156
     },
     "equipment": {
       "weapon": null,

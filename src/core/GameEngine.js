@@ -157,22 +157,10 @@ class GameEngine {
         return memberChar && memberChar.position.map === character.position.map;
       });
     }
-
-    // Create timeout for party battle (2 minutes)
-    let battleTimeout = null;
-    if (isPartyBattle) {
-      battleTimeout = setTimeout(() => {
-        this.handleBattleTimeout(userId);
-      }, 120000); // 2 minutes
-    }
     const combat = {
       id: `${userId}_${Date.now()}`,
       isPartyBattle: isPartyBattle,
       partyId: party ? party.id : null,
-      battleTimeout: battleTimeout,
-      turnNumber: 1,
-      playerActions: new Map(), // Store actions for each player
-      playersActed: new Set(), // Track which players have acted
       players: partyMembers.map(memberId => {
         const memberChar = this.getCharacter(memberId);
         return {
@@ -183,9 +171,7 @@ class GameEngine {
           attack: memberChar.stats.attack,
           defense: memberChar.stats.defense,
           agility: memberChar.stats.agility,
-          luck: memberChar.stats.luck,
-          hasActed: false,
-          currentAction: null
+          luck: memberChar.stats.luck
         };
       }),
       monster: {
@@ -202,7 +188,7 @@ class GameEngine {
       },
       turn: 'player',
       status: 'active',
-      waitingForPlayers: true
+      currentPlayerIndex: 0
     };
 
     // Set combat for all participating players
@@ -318,11 +304,6 @@ class GameEngine {
       combat = this.activeCombats.get(userId);
     }
     if (!combat) return null;
-    
-    // Clear timeout if exists
-    if (combat.battleTimeout) {
-      clearTimeout(combat.battleTimeout);
-    }
     
     const rewards = {
       exp: 0,
