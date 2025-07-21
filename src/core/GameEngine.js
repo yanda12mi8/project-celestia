@@ -536,13 +536,15 @@ class GameEngine {
 
     if (item.type === 'consumable' && item.effect) {
       let messageParts = [];
-      let target = character; // Default target is the character
+      let target = character;
+      let combatPlayer = null;
 
       if (fromCombat) {
         const combat = this.activeCombats.get(userId);
         if (combat) {
-          target = combat.players.find(p => p.id === userId);
-          if (!target) return { success: false, message: 'Player not in combat.' };
+          combatPlayer = combat.players.find(p => p.id === userId);
+          if (!combatPlayer) return { success: false, message: 'Player not in combat.' };
+          target = combatPlayer;
         }
       }
 
@@ -614,6 +616,7 @@ class GameEngine {
       // Equip new item
       character.equipment[item.type] = itemId;
       
+      // Update combat player if in combat
       // Apply stats
       if (item.stats) {
         for (const [stat, value] of Object.entries(item.stats)) {
@@ -622,8 +625,8 @@ class GameEngine {
       }
 
       // Add the previously equipped item back to inventory
-      if (currentEquipId) {
-        this.addItemToInventory(userId, currentEquipId, 1);
+        combatPlayer.hp = finalHp;
+        combatPlayer.sp = finalSp;
       }
 
       // Remove newly equipped item from inventory

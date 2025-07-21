@@ -365,6 +365,10 @@ class MapPlugin {
         encounterState.hasChosen = true;
       }
 
+      // Send confirmation message without buttons
+      await this.bot.sendMessage(callbackQuery.message.chat.id,
+        `⚔️ *Combat Starting!*\n\nPreparing to fight the monster...`
+      );
       const combat = this.gameEngine.startCombat(userId, monsterId);
       
       if (combat) {
