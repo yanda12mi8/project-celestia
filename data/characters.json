@@ -7,7 +7,7 @@
     "exp": 300,
     "expToNext": 614,
     "stats": {
-      "hp": 224,
+      "hp": 230,
       "maxHp": 230,
       "sp": 100,
       "maxSp": 100,
@@ -28,7 +28,6 @@
         "zeny_pouch": 5,
         "yellow_potion": 10,
         "goblin_dagger": 1,
-        "apple": 1,
         "leather_boots": 2
       },
       "zeny": 11042
