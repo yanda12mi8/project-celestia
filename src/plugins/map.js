@@ -224,6 +224,12 @@ class MapPlugin {
       ]
     };
 
+    // Store encounter state to track if user has chosen
+    if (!this.encounterStates) {
+      this.encounterStates = new Map();
+    }
+    this.encounterStates.set(userId, { monsterId: randomMonster, hasChosen: false });
+
     await this.bot.sendMessage(chatId, encounterMessage, {
       parse_mode: 'Markdown', 
       reply_markup: keyboard 
@@ -256,6 +262,10 @@ class MapPlugin {
     console.log(`[MapPlugin] Raw data received: ${data}`); // Added log
     console.log(`Map plugin handling callback: ${data} for user ${userId}`);
 
+    // Initialize encounter states if not exists
+    if (!this.encounterStates) {
+      this.encounterStates = new Map();
+    }
     if (data.startsWith('move_')) {
       const direction = data.replace('move_', '');
       await this.bot.answerCallbackQuery(callbackQuery.id, { text: `Moving ${direction}...` });
@@ -341,9 +351,20 @@ class MapPlugin {
     }
 
     if (data.startsWith('encounter_attack_')) {
+      const encounterState = this.encounterStates.get(userId);
+      if (encounterState && encounterState.hasChosen) {
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'You already chose an action!' });
+        return true;
+      }
+
       const monsterId = data.replace('encounter_attack_', '');
       await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Starting combat...' });
       
+      // Mark as chosen
+      if (encounterState) {
+        encounterState.hasChosen = true;
+      }
+
       const combat = this.gameEngine.startCombat(userId, monsterId);
       
       if (combat) {
@@ -357,11 +378,26 @@ class MapPlugin {
       } else {
         await this.bot.sendMessage(callbackQuery.message.chat.id, '❌ Failed to start combat!');
       }
+      
+      // Clean up encounter state
+      this.encounterStates.delete(userId);
       return true;
     }
 
     if (data === 'encounter_run') {
+      const encounterState = this.encounterStates.get(userId);
+      if (encounterState && encounterState.hasChosen) {
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'You already chose an action!' });
+        return true;
+      }
+
       await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Running away...' });
+      
+      // Mark as chosen
+      if (encounterState) {
+        encounterState.hasChosen = true;
+      }
+      
       const runChance = Math.random();
       
       if (runChance < 0.8) {
@@ -373,6 +409,9 @@ class MapPlugin {
           `❌ *Failed to run away!*\n\nThe monster blocked your escape!`
         );
       }
+      
+      // Clean up encounter state
+      this.encounterStates.delete(userId);
       return true;
     }
 

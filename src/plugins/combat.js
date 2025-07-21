@@ -54,6 +54,11 @@ class CombatPlugin {
       ]
     };
 
+    // Store hunt state to track if user has chosen
+    if (!this.huntStates) {
+      this.huntStates = new Map();
+    }
+    this.huntStates.set(userId, { monsterId: randomMonster, hasChosen: false });
     await this.bot.sendMessage(msg.chat.id,
       `🎯 *Monster Found!*\n\n` +
       `You encountered a ${monster.name}!\n\n` +
@@ -163,18 +168,27 @@ class CombatPlugin {
       playersInfo += `🛡️ Defense: ${player.defense}\n\n`;
     }
 
-    const keyboard = {
-      inline_keyboard: [
-        [
-          { text: '⚔️ Attack', callback_data: 'combat_attack' },
-          { text: '🛡️ Defend', callback_data: 'combat_defend' }
-        ],
-        [
-          { text: '💊 Use Item', callback_data: 'combat_item' },
-          { text: '🏃 Run', callback_data: 'combat_run' }
+    let keyboard = null;
+    const canAct = combat.turn === 'player' && (!combat.isPartyBattle || !combat.playerActions.has(userId));
+    
+    if (canAct) {
+      keyboard = {
+        inline_keyboard: [
+          [
+            { text: '⚔️ Attack', callback_data: 'combat_attack' },
+            { text: '🛡️ Defend', callback_data: 'combat_defend' }
+          ],
+          [
+            { text: '💊 Use Item', callback_data: 'combat_item' }
+          ]
         ]
-      ]
-    };
+      };
+      
+      // Add run button only for solo battles
+      if (!combat.isPartyBattle) {
+        keyboard.inline_keyboard[1].push({ text: '🏃 Run', callback_data: 'combat_run' });
+      }
+    }
 
     const monsterHpBar = this.createHealthBar(combat.monster.hp, combat.monster.maxHp);
 
@@ -182,7 +196,16 @@ class CombatPlugin {
       (combat.isPartyBattle ? 'Party turn!' : 'Your turn!') : 
       'Monster\'s turn';
 
-    const canAct = combat.turn === 'player' && (!combat.isPartyBattle || !combat.playerActions.has(userId));
+    let waitingText = '';
+    if (combat.isPartyBattle && combat.turn === 'player') {
+      const totalPlayers = combat.players.filter(p => p.hp > 0).length;
+      const actedPlayers = combat.playerActions.size;
+      const waitingPlayers = totalPlayers - actedPlayers;
+      
+      if (waitingPlayers > 0) {
+        waitingText = `\n⏳ Waiting for ${waitingPlayers} more players...`;
+      }
+    }
 
     try {
       await this.bot.sendMessage(chatId,
@@ -192,9 +215,9 @@ class CombatPlugin {
         `❤️ HP: ${monsterHpBar} ${combat.monster.hp}/${combat.monster.maxHp}\n` +
         `⚔️ Attack: ${combat.monster.attack}\n` +
         `🛡️ Defense: ${combat.monster.defense}\n\n` +
-        `🎯 Turn: ${currentTurnText}\n\n` +
-        `${canAct ? 'Choose your action:' : 'Waiting for other players...'}`,
-        { parse_mode: 'Markdown', reply_markup: canAct ? keyboard : undefined }
+        `🎯 Turn: ${currentTurnText}${waitingText}\n\n` +
+        `${canAct ? 'Choose your action:' : combat.playerActions.has(userId) ? 'Action selected! Waiting for others...' : 'Waiting for your turn...'}`,
+        { parse_mode: 'Markdown', reply_markup: keyboard }
       );
     } catch (e) {
         console.error(`Gagal mengirim status pertarungan ke ${chatId}`, e)
@@ -329,10 +352,25 @@ No items obtained.
     console.log(`[CombatPlugin] Raw data received: ${data}`); // Added log
     console.log(`Combat plugin handling callback: ${data} for user ${userId}`);
 
+    // Initialize hunt states if not exists
+    if (!this.huntStates) {
+      this.huntStates = new Map();
+    }
     if (data.startsWith('start_combat_')) {
+      const huntState = this.huntStates.get(userId);
+      if (huntState && huntState.hasChosen) {
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'You already chose an action!' });
+        return true;
+      }
+
       const monsterId = data.replace('start_combat_', '');
       const combat = this.gameEngine.startCombat(userId, monsterId);
       
+      // Mark as chosen
+      if (huntState) {
+        huntState.hasChosen = true;
+      }
+
       if (combat) {
         await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Combat started!' });
         
@@ -344,12 +382,30 @@ No items obtained.
       } else {
         await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Failed to start combat!' });
       }
+      
+      // Clean up hunt state
+      this.huntStates.delete(userId);
       return true;
     }
 
     if (data === 'hunt_again') {
+      const huntState = this.huntStates.get(userId);
+      if (huntState && huntState.hasChosen) {
+        await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'You already chose an action!' });
+        return true;
+      }
+
       await this.bot.answerCallbackQuery(callbackQuery.id);
+      
+      // Mark as chosen
+      if (huntState) {
+        huntState.hasChosen = true;
+      }
+      
       await this.handleHunt({ chat: callbackQuery.message.chat, from: callbackQuery.from });
+      
+      // Clean up hunt state
+      this.huntStates.delete(userId);
       return true;
     }
 
@@ -365,13 +421,13 @@ No items obtained.
       if (result && result.results) {
         await this.processCombatResult(callbackQuery.message.chat.id, userId, result);
       } else if (result && result.success) {
-        // Aksi berhasil dicatat, perbarui status untuk semua pemain.
-        // Ini berfungsi sebagai konfirmasi implisit.
+        // Action recorded successfully, update status for all players
         const combat = this.gameEngine.getCombat(userId);
         if (combat) {
           await this.showCombatStatus(null, userId);
         }
       }
+      return true;
     }
 
     if (data === 'combat_defend') {
@@ -409,8 +465,9 @@ No items obtained.
       for (const itemId of items) {
         const item = this.db.getItem(itemId);
         if (item && item.type === 'consumable') {
+          const quantity = character.inventory.items[itemId];
           keyboard.inline_keyboard.push([
-            { text: `💊 ${item.name}`, callback_data: `use_combat_item_${itemId}` }
+            { text: `💊 ${item.name} (${quantity})`, callback_data: `use_combat_item_${itemId}` }
           ]);
         }
       }
@@ -420,6 +477,9 @@ No items obtained.
         return true;
       }
 
+      keyboard.inline_keyboard.push([
+        { text: '❌ Cancel', callback_data: 'combat_cancel_item' }
+      ]);
       await this.bot.sendMessage(callbackQuery.message.chat.id,
         `💊 *Choose an item to use:*`,
         { parse_mode: 'Markdown', reply_markup: keyboard }
@@ -440,6 +500,7 @@ No items obtained.
       if (result && result.results) {
         await this.processCombatResult(callbackQuery.message.chat.id, userId, result);
       } else if (result && result.success) {
+        // Action recorded successfully, update status for all players
         const combat = this.gameEngine.getCombat(userId);
         if (combat) {
           await this.showCombatStatus(null, userId);
@@ -448,6 +509,14 @@ No items obtained.
       return true;
     }
 
+    if (data === 'combat_cancel_item') {
+      await this.bot.answerCallbackQuery(callbackQuery.id);
+      const combat = this.gameEngine.getCombat(userId);
+      if (combat) {
+        await this.showCombatStatus(callbackQuery.message.chat.id, userId);
+      }
+      return true;
+    }
     if (data === 'combat_run') {
       await this.bot.answerCallbackQuery(callbackQuery.id, { text: 'Attempting to run...' });
       const result = this.gameEngine.registerPlayerAction(userId, 'run');
