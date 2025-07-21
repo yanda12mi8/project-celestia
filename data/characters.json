@@ -4,10 +4,10 @@
     "name": "xBoii",
     "class": "novice",
     "level": 11,
-    "exp": 285,
+    "exp": 300,
     "expToNext": 614,
     "stats": {
-      "hp": 225,
+      "hp": 224,
       "maxHp": 230,
       "sp": 100,
       "maxSp": 100,
@@ -31,7 +31,7 @@
         "apple": 1,
         "leather_boots": 2
       },
-      "zeny": 11017
+      "zeny": 11042
     },
     "equipment": {
       "weapon": "iron_sword",
